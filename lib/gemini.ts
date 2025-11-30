@@ -1,4 +1,5 @@
 import { VertexAI } from '@google-cloud/vertexai';
+import { GoogleAuth } from 'google-auth-library';
 
 /**
  * 정답 비교 함수 (엄격한 정답 체크)
@@ -94,17 +95,21 @@ function initializeVertexAI() {
   };
 
   // Vercel 환경에서는 환경 변수에 JSON 문자열이 들어있을 수 있음
-  // 로컬 개발 환경에서는 파일 경로를 사용 (SDK가 자동으로 파일을 읽음)
   if (credentialsJson && credentialsJson.startsWith('{')) {
-    // JSON 문자열인 경우 파싱하여 credentials로 설정
     try {
-      vertexAIConfig.credentials = JSON.parse(credentialsJson);
+      const credentials = JSON.parse(credentialsJson);
+      // GoogleAuth를 사용하여 인증
+      const auth = new GoogleAuth({
+        credentials: credentials,
+        scopes: ['https://www.googleapis.com/auth/cloud-platform'],
+      });
+      vertexAIConfig.googleAuthOptions = {
+        authClient: auth,
+      };
     } catch (error) {
       console.error('GOOGLE_APPLICATION_CREDENTIALS JSON 파싱 오류:', error);
-      // 파싱 실패 시 파일 경로로 간주하고 SDK가 자동으로 읽도록 함
     }
   }
-  // 파일 경로인 경우 (로컬 개발 환경) SDK가 GOOGLE_APPLICATION_CREDENTIALS 환경 변수를 자동으로 읽음
 
   vertexAI = new VertexAI(vertexAIConfig);
   model = vertexAI.getGenerativeModel({
