@@ -213,9 +213,11 @@ function GamePage({
   }, [gameResults.length]);
 
   // 게임 플레이 중에만 body 스크롤 방지 (모바일/iPad)
+  // isPlaying, submitting, showResult 중 하나라도 활성화되어 있으면 스크롤 방지
   useEffect(() => {
-    // isPlaying이 true일 때만 스크롤 방지 (결과 페이지에서는 스크롤 허용)
-    if (isPlaying && !showProblemScreen) {
+    const shouldPreventScroll = (isPlaying || submitting || showResult) && !showProblemScreen;
+    
+    if (shouldPreventScroll) {
       // html과 body에 game-active 클래스 추가
       document.documentElement.classList.add('game-active');
       document.body.classList.add('game-active');
@@ -225,9 +227,9 @@ function GamePage({
       document.body.classList.remove('game-active');
     }
     
-    // 터치 이동 방지 (캔버스 제외) - isPlaying일 때만
+    // 터치 이동 방지 (캔버스 제외)
     const preventTouchMove = (e: TouchEvent) => {
-      if (!isPlaying || showProblemScreen) return; // 게임 중이 아니면 허용
+      if (!shouldPreventScroll) return; // 게임 중이 아니면 허용
       
       const target = e.target as HTMLElement;
       // 캔버스에서의 터치는 허용
@@ -249,7 +251,7 @@ function GamePage({
       document.body.classList.remove('game-active');
       document.removeEventListener('touchmove', preventTouchMove);
     };
-  }, [isPlaying, showProblemScreen]);
+  }, [isPlaying, submitting, showResult, showProblemScreen]);
 
   // topic.words가 비어있거나 currentWordIndex가 범위를 벗어났는지 확인
   const wordsLength = topic?.words?.length || 0;
