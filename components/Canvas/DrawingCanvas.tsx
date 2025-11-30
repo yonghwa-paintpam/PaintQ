@@ -47,7 +47,7 @@ export default function DrawingCanvas({
     ctx.lineJoin = 'round';
   }, [width, height]);
 
-  const getCanvasCoordinates = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const getCanvasCoordinates = (clientX: number, clientY: number) => {
     const canvas = canvasRef.current;
     if (!canvas) return { x: 0, y: 0 };
 
@@ -55,27 +55,27 @@ export default function DrawingCanvas({
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
 
-    const x = (e.clientX - rect.left) * scaleX;
-    const y = (e.clientY - rect.top) * scaleY;
+    const x = (clientX - rect.left) * scaleX;
+    const y = (clientY - rect.top) * scaleY;
 
     return { x, y };
   };
 
-  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const startDrawing = (clientX: number, clientY: number) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const { x, y } = getCanvasCoordinates(e);
+    const { x, y } = getCanvasCoordinates(clientX, clientY);
 
     setIsDrawing(true);
     ctx.beginPath();
     ctx.moveTo(x, y);
   };
 
-  const draw = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const draw = (clientX: number, clientY: number) => {
     if (!isDrawing) return;
 
     const canvas = canvasRef.current;
@@ -84,7 +84,7 @@ export default function DrawingCanvas({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const { x, y } = getCanvasCoordinates(e);
+    const { x, y } = getCanvasCoordinates(clientX, clientY);
 
     // 외부에서 전달된 isErasing 사용
     const currentIsErasing = externalIsErasing !== undefined ? externalIsErasing : internalIsErasing;
@@ -122,6 +122,44 @@ export default function DrawingCanvas({
     ctx.beginPath();
   };
 
+  // 마우스 이벤트 핸들러
+  const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    startDrawing(e.clientX, e.clientY);
+  };
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    draw(e.clientX, e.clientY);
+  };
+
+  const handleMouseUp = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    stopDrawing();
+  };
+
+  // 터치 이벤트 핸들러
+  const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault(); // 스크롤 방지
+    const touch = e.touches[0];
+    if (touch) {
+      startDrawing(touch.clientX, touch.clientY);
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault(); // 스크롤 방지
+    const touch = e.touches[0];
+    if (touch) {
+      draw(touch.clientX, touch.clientY);
+    }
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    stopDrawing();
+  };
+
   const resetCanvas = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -157,12 +195,15 @@ export default function DrawingCanvas({
         ref={canvasRef}
         width={width}
         height={height}
-        className="w-full h-full cursor-crosshair bg-white"
-        style={{ display: 'block' }}
-        onMouseDown={startDrawing}
-        onMouseMove={draw}
-        onMouseUp={stopDrawing}
+        className="w-full h-full cursor-crosshair bg-white touch-none"
+        style={{ display: 'block', touchAction: 'none' }}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
         onMouseLeave={stopDrawing}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
       />
     </div>
   );
