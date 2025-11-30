@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import LoadingSpinner from '@/components/Loading/LoadingSpinner';
@@ -33,7 +33,7 @@ interface Drawing {
   imageData: string;
 }
 
-export default function SuperAdminPage() {
+function SuperAdminContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [authenticated, setAuthenticated] = useState(false);
@@ -47,9 +47,7 @@ export default function SuperAdminPage() {
 
   useEffect(() => {
     const key = searchParams.get('key');
-    const superAdminKey = process.env.NEXT_PUBLIC_SUPER_ADMIN_SECRET_KEY || '';
 
-    // 클라이언트에서는 환경 변수를 직접 확인할 수 없으므로, 서버 API로 인증 확인
     if (!key) {
       router.push('/');
       return;
@@ -67,8 +65,7 @@ export default function SuperAdminPage() {
       } else {
         router.push('/');
       }
-    } catch (error) {
-      console.error('인증 오류:', error);
+    } catch {
       router.push('/');
     }
   };
@@ -81,8 +78,8 @@ export default function SuperAdminPage() {
         const data = await response.json();
         setAccessCodes(data);
       }
-    } catch (error) {
-      console.error('접속 코드 조회 오류:', error);
+    } catch {
+      // 오류 무시
     } finally {
       setLoading(false);
     }
@@ -99,8 +96,7 @@ export default function SuperAdminPage() {
       } else {
         alert('접속 코드 생성에 실패했습니다.');
       }
-    } catch (error) {
-      console.error('접속 코드 생성 오류:', error);
+    } catch {
       alert('접속 코드 생성에 실패했습니다.');
     } finally {
       setCreating(false);
@@ -129,8 +125,7 @@ export default function SuperAdminPage() {
       } else {
         alert('상태 변경에 실패했습니다.');
       }
-    } catch (error) {
-      console.error('상태 변경 오류:', error);
+    } catch {
       alert('상태 변경에 실패했습니다.');
     }
   };
@@ -146,8 +141,8 @@ export default function SuperAdminPage() {
         const data = await response.json();
         setTopics(data);
       }
-    } catch (error) {
-      console.error('주제 조회 오류:', error);
+    } catch {
+      // 오류 무시
     } finally {
       setLoading(false);
     }
@@ -158,7 +153,6 @@ export default function SuperAdminPage() {
     setDrawings([]);
     setLoading(true);
     try {
-      // 해당 주제의 모든 단어에 대한 그림 데이터 조회
       const allDrawings: Drawing[] = [];
       for (const word of topic.words) {
         const response = await fetch(`/api/access-codes/${selectedCode}/drawings/${word.id}`);
@@ -168,8 +162,8 @@ export default function SuperAdminPage() {
         }
       }
       setDrawings(allDrawings);
-    } catch (error) {
-      console.error('그림 데이터 조회 오류:', error);
+    } catch {
+      // 오류 무시
     } finally {
       setLoading(false);
     }
@@ -337,3 +331,14 @@ export default function SuperAdminPage() {
   );
 }
 
+export default function SuperAdminPage() {
+  return (
+    <Suspense fallback={
+      <main className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
+        <LoadingSpinner />
+      </main>
+    }>
+      <SuperAdminContent />
+    </Suspense>
+  );
+}

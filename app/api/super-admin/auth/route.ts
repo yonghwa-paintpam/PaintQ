@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+// 동적 라우트로 강제 설정
+export const dynamic = 'force-dynamic';
+
 /**
  * 슈퍼 관리자 인증 확인
  */
