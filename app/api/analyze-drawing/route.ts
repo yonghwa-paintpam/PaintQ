@@ -17,12 +17,14 @@ export async function POST(request: NextRequest) {
     try {
       const result = await analyzeDrawing(imageData, correctAnswer);
       return NextResponse.json(result);
-    } catch (aiError) {
-      // AI API 오류 시 오답으로 처리 (Mock 제거)
+    } catch (aiError: any) {
+      // AI API 오류 시 에러 메시지 포함하여 반환
       console.error('Gemini API 오류:', aiError);
+      const errorMessage = aiError?.message || '알 수 없는 오류';
       return NextResponse.json({
-        aiGuess: 'AI 분석 실패',
+        aiGuess: `오류: ${errorMessage.substring(0, 50)}`,
         isCorrect: false,
+        error: errorMessage,
       });
     }
   } catch (error) {
