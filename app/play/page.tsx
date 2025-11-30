@@ -173,34 +173,45 @@ function GamePage({
     // 유효성 검사 (로그 제거)
   }, [topic]);
 
-  // 게임 중 body 스크롤 방지 (모바일)
+  // 게임 중 body 스크롤 방지 (모바일/iPad)
   useEffect(() => {
-    // body와 html 스크롤 방지
-    document.body.style.overflow = 'hidden';
-    document.body.style.position = 'fixed';
-    document.body.style.width = '100%';
-    document.body.style.height = '100%';
-    document.documentElement.style.overflow = 'hidden';
+    // html과 body에 game-active 클래스 추가
+    document.documentElement.classList.add('game-active');
+    document.body.classList.add('game-active');
     
-    // 터치 이동 방지
+    // 터치 이동 방지 (캔버스 제외)
     const preventTouchMove = (e: TouchEvent) => {
+      const target = e.target as HTMLElement;
       // 캔버스에서의 터치는 허용
-      if ((e.target as HTMLElement)?.tagName === 'CANVAS') {
+      if (target?.tagName === 'CANVAS') {
+        return;
+      }
+      // 버튼 클릭은 허용
+      if (target?.tagName === 'BUTTON' || target?.closest('button')) {
         return;
       }
       e.preventDefault();
     };
     
+    // 스크롤 이벤트도 방지
+    const preventScroll = (e: Event) => {
+      const target = e.target as HTMLElement;
+      if (target?.tagName !== 'CANVAS') {
+        e.preventDefault();
+      }
+    };
+    
     document.addEventListener('touchmove', preventTouchMove, { passive: false });
+    document.addEventListener('scroll', preventScroll, { passive: false });
+    window.addEventListener('scroll', preventScroll, { passive: false });
     
     return () => {
       // 컴포넌트 언마운트 시 복원
-      document.body.style.overflow = '';
-      document.body.style.position = '';
-      document.body.style.width = '';
-      document.body.style.height = '';
-      document.documentElement.style.overflow = '';
+      document.documentElement.classList.remove('game-active');
+      document.body.classList.remove('game-active');
       document.removeEventListener('touchmove', preventTouchMove);
+      document.removeEventListener('scroll', preventScroll);
+      window.removeEventListener('scroll', preventScroll);
     };
   }, []);
 
