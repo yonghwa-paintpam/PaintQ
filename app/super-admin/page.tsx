@@ -1,0 +1,339 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
+import LoadingSpinner from '@/components/Loading/LoadingSpinner';
+
+interface AccessCode {
+  id: string;
+  code: string;
+  createdAt: string;
+  lastUsedAt: string | null;
+  isActive: boolean;
+  deactivatedAt: string | null;
+  _count?: {
+    topics: number;
+    games: number;
+  };
+}
+
+interface Topic {
+  id: string;
+  name: string;
+  words: Array<{
+    id: string;
+    word: string;
+    order: number;
+  }>;
+}
+
+interface Drawing {
+  id: string;
+  imageData: string;
+}
+
+export default function SuperAdminPage() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const [authenticated, setAuthenticated] = useState(false);
+  const [accessCodes, setAccessCodes] = useState<AccessCode[]>([]);
+  const [selectedCode, setSelectedCode] = useState<string | null>(null);
+  const [topics, setTopics] = useState<Topic[]>([]);
+  const [selectedTopic, setSelectedTopic] = useState<Topic | null>(null);
+  const [drawings, setDrawings] = useState<Drawing[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [creating, setCreating] = useState(false);
+
+  useEffect(() => {
+    const key = searchParams.get('key');
+    const superAdminKey = process.env.NEXT_PUBLIC_SUPER_ADMIN_SECRET_KEY || '';
+
+    // 클라이언트에서는 환경 변수를 직접 확인할 수 없으므로, 서버 API로 인증 확인
+    if (!key) {
+      router.push('/');
+      return;
+    }
+
+    validateAuth(key);
+  }, [searchParams, router]);
+
+  const validateAuth = async (key: string) => {
+    try {
+      const response = await fetch(`/api/super-admin/auth?key=${encodeURIComponent(key)}`);
+      if (response.ok) {
+        setAuthenticated(true);
+        fetchAccessCodes();
+      } else {
+        router.push('/');
+      }
+    } catch (error) {
+      console.error('인증 오류:', error);
+      router.push('/');
+    }
+  };
+
+  const fetchAccessCodes = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch('/api/access-codes');
+      if (response.ok) {
+        const data = await response.json();
+        setAccessCodes(data);
+      }
+    } catch (error) {
+      console.error('접속 코드 조회 오류:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateAccessCode = async () => {
+    setCreating(true);
+    try {
+      const response = await fetch('/api/access-codes', {
+        method: 'POST',
+      });
+      if (response.ok) {
+        await fetchAccessCodes();
+      } else {
+        alert('접속 코드 생성에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('접속 코드 생성 오류:', error);
+      alert('접속 코드 생성에 실패했습니다.');
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleToggleActive = async (code: string, currentActive: boolean) => {
+    try {
+      const response = await fetch(`/api/access-codes/${code}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          isActive: !currentActive,
+        }),
+      });
+      if (response.ok) {
+        await fetchAccessCodes();
+        if (selectedCode === code) {
+          setSelectedCode(null);
+          setTopics([]);
+          setSelectedTopic(null);
+          setDrawings([]);
+        }
+      } else {
+        alert('상태 변경에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('상태 변경 오류:', error);
+      alert('상태 변경에 실패했습니다.');
+    }
+  };
+
+  const handleSelectCode = async (code: string) => {
+    setSelectedCode(code);
+    setSelectedTopic(null);
+    setDrawings([]);
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/access-codes/${code}/topics`);
+      if (response.ok) {
+        const data = await response.json();
+        setTopics(data);
+      }
+    } catch (error) {
+      console.error('주제 조회 오류:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSelectTopic = async (topic: Topic) => {
+    setSelectedTopic(topic);
+    setDrawings([]);
+    setLoading(true);
+    try {
+      // 해당 주제의 모든 단어에 대한 그림 데이터 조회
+      const allDrawings: Drawing[] = [];
+      for (const word of topic.words) {
+        const response = await fetch(`/api/access-codes/${selectedCode}/drawings/${word.id}`);
+        if (response.ok) {
+          const data = await response.json();
+          allDrawings.push(...data);
+        }
+      }
+      setDrawings(allDrawings);
+    } catch (error) {
+      console.error('그림 데이터 조회 오류:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!authenticated) {
+    return (
+      <main className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
+        <LoadingSpinner />
+      </main>
+    );
+  }
+
+  return (
+    <main className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 p-4 sm:p-8">
+      <div className="max-w-7xl mx-auto">
+        <div className="mb-6 flex items-center justify-between">
+          <h1 className="text-3xl sm:text-4xl font-bold text-gray-800">슈퍼 관리자</h1>
+          <Link
+            href="/"
+            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+          >
+            홈으로
+          </Link>
+        </div>
+
+        <div className="mb-6">
+          <button
+            onClick={handleCreateAccessCode}
+            disabled={creating}
+            className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {creating ? '생성 중...' : '+ 새 접속 코드 생성'}
+          </button>
+        </div>
+
+        {loading && !selectedCode ? (
+          <div className="flex justify-center items-center py-20">
+            <LoadingSpinner />
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* 접속 코드 목록 */}
+            <div className="bg-white rounded-lg shadow-lg p-6">
+              <h2 className="text-xl font-bold mb-4 text-gray-800">접속 코드 목록</h2>
+              <div className="space-y-2">
+                {accessCodes.length === 0 ? (
+                  <p className="text-gray-600">접속 코드가 없습니다.</p>
+                ) : (
+                  accessCodes.map((ac) => (
+                    <div
+                      key={ac.id}
+                      className={`p-3 rounded-lg border-2 cursor-pointer transition-colors ${
+                        selectedCode === ac.code
+                          ? 'border-blue-500 bg-blue-50'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                      onClick={() => handleSelectCode(ac.code)}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-bold text-lg text-gray-900">{ac.code}</p>
+                          <p className="text-sm text-gray-700 font-medium">
+                            주제: {ac._count?.topics || 0}개, 게임: {ac._count?.games || 0}개
+                          </p>
+                          <p className="text-xs text-gray-600">
+                            생성: {new Date(ac.createdAt).toLocaleDateString('ko-KR')}
+                          </p>
+                        </div>
+                        <div className="flex flex-col items-end gap-2">
+                          <span
+                            className={`px-2 py-1 rounded text-xs font-semibold ${
+                              ac.isActive
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-red-100 text-red-800'
+                            }`}
+                          >
+                            {ac.isActive ? '활성' : '비활성'}
+                          </span>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleActive(ac.code, ac.isActive);
+                            }}
+                            className="text-xs text-blue-600 hover:text-blue-800 underline"
+                          >
+                            {ac.isActive ? '비활성화' : '활성화'}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* 주제 목록 */}
+            <div className="bg-white rounded-lg shadow-lg p-6">
+              <h2 className="text-xl font-bold mb-4 text-gray-800">
+                주제 목록 {selectedCode && `(${selectedCode})`}
+              </h2>
+              {!selectedCode ? (
+                <p className="text-gray-600">접속 코드를 선택해주세요.</p>
+              ) : loading ? (
+                <LoadingSpinner />
+              ) : topics.length === 0 ? (
+                <p className="text-gray-600">주제가 없습니다.</p>
+              ) : (
+                <div className="space-y-2">
+                  {topics.map((topic) => (
+                    <div
+                      key={topic.id}
+                      className={`p-3 rounded-lg border-2 cursor-pointer transition-colors ${
+                        selectedTopic?.id === topic.id
+                          ? 'border-purple-500 bg-purple-50'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                      onClick={() => handleSelectTopic(topic)}
+                    >
+                      <p className="font-semibold text-gray-900">{topic.name}</p>
+                      <p className="text-sm text-gray-700 font-medium">
+                        문제: {topic.words.length}개
+                      </p>
+                      <p className="text-xs text-gray-600 mt-1">
+                        {topic.words
+                          .sort((a, b) => a.order - b.order)
+                          .map((w) => w.word)
+                          .join(', ')}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* 그림 데이터 목록 */}
+            <div className="bg-white rounded-lg shadow-lg p-6">
+              <h2 className="text-xl font-bold mb-4 text-gray-800">
+                그림 데이터 {selectedTopic && `(${selectedTopic.name})`}
+              </h2>
+              {!selectedTopic ? (
+                <p className="text-gray-600">주제를 선택해주세요.</p>
+              ) : loading ? (
+                <LoadingSpinner />
+              ) : drawings.length === 0 ? (
+                <p className="text-gray-600">그림 데이터가 없습니다.</p>
+              ) : (
+                <div className="grid grid-cols-2 gap-2">
+                  {drawings.map((drawing) => (
+                    <div key={drawing.id} className="border rounded-lg p-2">
+                      <img
+                        src={drawing.imageData}
+                        alt="그림"
+                        className="w-full h-24 object-contain rounded"
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </main>
+  );
+}
+

@@ -1,0 +1,87 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// 접속 코드 (AccessCode)
+model AccessCode {
+  id            String   @id @default(cuid())
+  code          String   @unique // 4자리 숫자 (0000-9999)
+  createdAt     DateTime @default(now())
+  lastUsedAt    DateTime?
+  isActive      Boolean  @default(true)
+  deactivatedAt DateTime?
+  
+  topics        Topic[]
+  games         Game[]
+  
+  @@map("access_codes")
+}
+
+// 주제 (Topic)
+model Topic {
+  id            String   @id @default(cuid())
+  accessCodeId  String   // 접속 코드 연결
+  name          String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  accessCode    AccessCode @relation(fields: [accessCodeId], references: [id], onDelete: Cascade)
+  words         Word[]
+  games         Game[]
+  
+  @@map("topics")
+}
+
+// 문제 단어 (Word)
+model Word {
+  id        String   @id @default(cuid())
+  topicId   String
+  word      String   // 문제 단어
+  order     Int      // 순서 (1-10)
+  createdAt DateTime @default(now())
+  
+  topic     Topic    @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  games     Game[]
+  
+  @@unique([topicId, order])
+  @@map("words")
+}
+
+// 게임 기록 (Game)
+model Game {
+  id            String   @id @default(cuid())
+  accessCodeId  String   // 접속 코드 연결
+  topicId       String
+  wordId        String
+  createdAt     DateTime @default(now())
+  
+  accessCode    AccessCode @relation(fields: [accessCodeId], references: [id], onDelete: Cascade)
+  topic         Topic      @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  word          Word       @relation(fields: [wordId], references: [id], onDelete: Cascade)
+  drawing       Drawing?
+  
+  @@map("games")
+}
+
+// 그림 데이터 (Drawing)
+model Drawing {
+  id        String   @id @default(cuid())
+  gameId    String   @unique
+  imageData String   // Base64 이미지 데이터 또는 Storage URL
+  aiGuess   String?  // AI가 추측한 단어
+  isCorrect Boolean? // 정답 여부
+  createdAt DateTime @default(now())
+  
+  game      Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  
+  @@map("drawings")
+}
+
