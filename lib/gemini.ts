@@ -1,5 +1,4 @@
-import { VertexAI } from '@google-cloud/vertexai';
-import { GoogleAuth } from 'google-auth-library';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 /**
  * 정답 비교 함수 (엄격한 정답 체크)
@@ -32,8 +31,6 @@ function compareAnswers(aiGuess: string, correctAnswer: string): boolean {
   }
   
   // 3. 명시적으로 정의된 유사 단어 매핑만 인정 (엄격하게)
-  // 주의: 포함 관계는 인정하지 않음 (예: "바오밥나무"와 "나무"는 다른 것으로 간주)
-  // 부분 일치도 인정하지 않음 (예: "고양"은 "고양이"와 다름)
   const similarWords: Record<string, string[]> = {
     '자동차': ['자동차', '차', 'car'],
     '고양이': ['고양이', '냥이', 'cat'],
@@ -44,6 +41,14 @@ function compareAnswers(aiGuess: string, correctAnswer: string): boolean {
     '기차': ['기차', '열차', 'train'],
     '자전거': ['자전거', 'bicycle', 'bike'],
     '배': ['배', '선박', 'ship', 'boat'],
+    '별': ['별', 'star', '스타'],
+    '해': ['해', '태양', 'sun'],
+    '달': ['달', 'moon'],
+    '구름': ['구름', 'cloud'],
+    '나무': ['나무', 'tree'],
+    '꽃': ['꽃', 'flower'],
+    '집': ['집', 'house', '하우스'],
+    '사람': ['사람', 'person', 'human'],
     'LG': ['LG', 'lg', '엘지', 'L.G'],
   };
   
@@ -72,47 +77,23 @@ function compareAnswers(aiGuess: string, correctAnswer: string): boolean {
   return false;
 }
 
-// Vertex AI 초기화 (lazy initialization)
-let vertexAI: VertexAI | null = null;
+// Gemini AI 초기화
+let genAI: GoogleGenerativeAI | null = null;
 let model: any = null;
 
-function initializeVertexAI() {
-  if (vertexAI && model) {
+function initializeGemini() {
+  if (genAI && model) {
     return model;
   }
 
-  const projectId = process.env.GOOGLE_CLOUD_PROJECT_ID;
-  const location = process.env.GOOGLE_CLOUD_LOCATION || 'us-central1';
-  const credentialsJson = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+  const apiKey = process.env.GEMINI_API_KEY;
 
-  if (!projectId) {
-    throw new Error('GOOGLE_CLOUD_PROJECT_ID 환경 변수가 설정되지 않았습니다.');
+  if (!apiKey) {
+    throw new Error('GEMINI_API_KEY 환경 변수가 설정되지 않았습니다.');
   }
 
-  const vertexAIConfig: any = {
-    project: projectId,
-    location: location,
-  };
-
-  // Vercel 환경에서는 환경 변수에 JSON 문자열이 들어있을 수 있음
-  if (credentialsJson && credentialsJson.startsWith('{')) {
-    try {
-      const credentials = JSON.parse(credentialsJson);
-      // GoogleAuth를 사용하여 인증
-      const auth = new GoogleAuth({
-        credentials: credentials,
-        scopes: ['https://www.googleapis.com/auth/cloud-platform'],
-      });
-      vertexAIConfig.googleAuthOptions = {
-        authClient: auth,
-      };
-    } catch (error) {
-      console.error('GOOGLE_APPLICATION_CREDENTIALS JSON 파싱 오류:', error);
-    }
-  }
-
-  vertexAI = new VertexAI(vertexAIConfig);
-  model = vertexAI.getGenerativeModel({
+  genAI = new GoogleGenerativeAI(apiKey);
+  model = genAI.getGenerativeModel({
     model: 'gemini-1.5-flash',
   });
 
@@ -130,7 +111,7 @@ export async function analyzeDrawing(
   correctAnswer: string
 ): Promise<{ aiGuess: string; isCorrect: boolean }> {
   try {
-    const modelInstance = initializeVertexAI();
+    const modelInstance = initializeGemini();
     
     const prompt = `
 이 그림이 무엇인지 맞춰보세요.
@@ -146,27 +127,17 @@ export async function analyzeDrawing(
 }
 `;
 
-    const request = {
-      contents: [
-        {
-          role: 'user',
-          parts: [
-            {
-              text: prompt,
-            },
-            {
-              inlineData: {
-                mimeType: 'image/png',
-                data: imageBase64,
-              },
-            },
-          ],
+    const result = await modelInstance.generateContent([
+      prompt,
+      {
+        inlineData: {
+          mimeType: 'image/png',
+          data: imageBase64,
         },
-      ],
-    };
+      },
+    ]);
 
-    const response = await modelInstance.generateContent(request);
-    const responseText = response.response.candidates?.[0]?.content?.parts?.[0]?.text;
+    const responseText = result.response.text();
 
     if (!responseText) {
       throw new Error('AI 응답을 받지 못했습니다.');
@@ -178,8 +149,8 @@ export async function analyzeDrawing(
       // 응답에서 JSON 부분만 추출
       const jsonMatch = responseText.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
-        const result = JSON.parse(jsonMatch[0]);
-        aiGuess = result.aiGuess || '알 수 없음';
+        const parsed = JSON.parse(jsonMatch[0]);
+        aiGuess = parsed.aiGuess || '알 수 없음';
       } else {
         // JSON이 없으면 첫 번째 줄을 추측으로 사용
         aiGuess = responseText.trim().split('\n')[0] || '알 수 없음';
@@ -200,8 +171,8 @@ export async function analyzeDrawing(
         aiGuess = '알 수 없음';
       }
     } catch (parseError) {
-      // JSON 파싱 실패 시 "알 수 없음"으로 처리
-      aiGuess = '알 수 없음';
+      // JSON 파싱 실패 시 텍스트에서 추측 추출
+      aiGuess = responseText.trim().split('\n')[0] || '알 수 없음';
     }
 
     // "알 수 없음"이면 무조건 오답
@@ -224,5 +195,3 @@ export async function analyzeDrawing(
     throw new Error(`그림 분석 중 오류가 발생했습니다: ${error instanceof Error ? error.message : '알 수 없는 오류'}`);
   }
 }
-
-
