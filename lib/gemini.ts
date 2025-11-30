@@ -108,7 +108,7 @@ function initializeVertexAI() {
 
   vertexAI = new VertexAI(vertexAIConfig);
   model = vertexAI.getGenerativeModel({
-    model: 'gemini-2.5-flash-lite',
+    model: 'gemini-1.5-flash',
   });
 
   return model;
@@ -128,17 +128,16 @@ export async function analyzeDrawing(
     const modelInstance = initializeVertexAI();
     
     const prompt = `
-이 그림을 분석해주세요.
+이 그림이 무엇인지 맞춰보세요.
 
-중요 지침:
-1. 그림을 매우 정확하게 관찰하고, 실제로 그려진 내용만을 바탕으로 추측해주세요.
-2. 그림이 단순한 도형(원, 사각형, 선 등)이거나 명확하지 않으면 반드시 "알 수 없음"이라고 답변해주세요.
-3. 확신이 없거나 애매하면 "알 수 없음"이라고 답변해주세요.
-4. 한 단어로만 답변해주세요. 설명이나 추가 텍스트는 포함하지 마세요.
+지침:
+1. 그림을 보고 무엇을 그린 것인지 추측해주세요.
+2. 손으로 그린 간단한 그림이므로, 대략적인 형태를 보고 추측하면 됩니다.
+3. 한 단어로만 답변해주세요. (예: 고양이, 사과, 자동차, 별, 해 등)
 
-응답 형식은 반드시 다음 JSON 형식으로 해주세요:
+응답 형식:
 {
-  "aiGuess": "추측한 단어 또는 알 수 없음"
+  "aiGuess": "추측한 단어"
 }
 `;
 
@@ -181,20 +180,18 @@ export async function analyzeDrawing(
         aiGuess = responseText.trim().split('\n')[0] || '알 수 없음';
       }
       
-      // 불확실한 표현이 있으면 "알 수 없음"으로 처리
+      // 명확히 불확실한 표현만 필터링 (너무 엄격하지 않게)
       const lowerGuess = aiGuess.toLowerCase().trim();
       const uncertainKeywords = [
-        '알 수 없', '모르겠', '불확실', 'unknown', 'unclear', 
-        '모르', '확실하지', '애매', '구분', '판단', '추측',
-        '원', '동그라미', '사각형', '선', '도형', 'circle', 'square', 'line', 'shape'
+        '알 수 없', '모르겠', '불확실', 'unknown', 'unclear', 'cannot'
       ];
       
       if (uncertainKeywords.some(keyword => lowerGuess.includes(keyword))) {
         aiGuess = '알 수 없음';
       }
       
-      // 너무 짧거나 의미 없는 답변도 "알 수 없음"으로 처리
-      if (aiGuess.length < 2 || aiGuess === '?' || aiGuess === '??') {
+      // 너무 짧거나 의미 없는 답변만 필터링
+      if (aiGuess.length < 1 || aiGuess === '?' || aiGuess === '??') {
         aiGuess = '알 수 없음';
       }
     } catch (parseError) {
