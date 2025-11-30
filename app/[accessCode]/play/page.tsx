@@ -901,7 +901,7 @@ function GamePage({
       <div className="relative w-full h-[calc(100vh-80px)] bg-white">
         {/* 정답/오답 표시 - currentWord가 있을 때만 표시 */}
         {showResult && currentWord && (
-          <div className={`absolute top-4 left-1/2 transform -translate-x-1/2 z-10 p-4 sm:p-6 rounded-lg text-center w-full max-w-2xl animate-scale-in ${
+          <div className={`absolute top-4 left-1/2 transform -translate-x-1/2 z-10 p-4 sm:p-6 rounded-lg text-center w-full max-w-2xl animate-scale-in pointer-events-none ${
             showResult.isCorrect 
               ? 'bg-green-100 border-2 border-green-500' 
               : 'bg-red-100 border-2 border-red-500'
@@ -919,20 +919,22 @@ function GamePage({
         )}
 
         {/* 캔버스 - 화면 전체 */}
-        <div className="absolute inset-0 w-full h-full">
-          <DrawingCanvas
-            width={typeof window !== 'undefined' ? window.innerWidth : 1920}
-            height={typeof window !== 'undefined' ? window.innerHeight - 80 : 1080}
-            onDrawingChange={setCanvasImageData}
-            isErasing={isErasing}
-            onErasingChange={setIsErasing}
-          />
+        <div className="absolute inset-0 w-full h-full pointer-events-none">
+          <div className="w-full h-full pointer-events-auto">
+            <DrawingCanvas
+              width={typeof window !== 'undefined' ? window.innerWidth : 1920}
+              height={typeof window !== 'undefined' ? window.innerHeight - 80 : 1080}
+              onDrawingChange={setCanvasImageData}
+              isErasing={isErasing}
+              onErasingChange={setIsErasing}
+            />
+          </div>
 
           {/* AI 말풍선 (하단 중앙) - 작은 회색 말풍선 */}
           {/* showResult가 설정되기 전까지는 말풍선을 표시 (정답 메시지가 표시되면 사라짐) */}
           {/* 정답일 때는 showResult가 설정되어도 AI 말풍선을 유지 (정답 메시지와 함께 표시) */}
           {isPlaying && !submitting && (
-            <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 bg-gray-200 rounded-lg shadow-sm p-3 min-w-[120px] max-w-[300px]">
+            <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 bg-gray-200 rounded-lg shadow-sm p-3 min-w-[120px] max-w-[300px] pointer-events-none">
               <div className="flex flex-col items-center justify-center gap-1">
                 {aiGuessHistory.length === 0 ? (
                   // 첫 추측 전: "..."
