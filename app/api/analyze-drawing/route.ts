@@ -25,7 +25,8 @@ function getMockAnalysis(correctAnswer: string) {
 
   const guesses = mockGuesses[correctAnswer] || [correctAnswer];
   const aiGuess = guesses[Math.floor(Math.random() * guesses.length)];
-  const isCorrect = aiGuess === correctAnswer || random > 0.3; // 70% 확률로 정답
+  // Mock에서는 정확히 일치할 때만 정답으로 처리 (더 엄격하게)
+  const isCorrect = aiGuess === correctAnswer;
 
   return {
     aiGuess,
