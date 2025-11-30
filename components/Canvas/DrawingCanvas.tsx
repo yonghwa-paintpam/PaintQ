@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, useCallback } from 'react';
 
 interface DrawingCanvasProps {
   width?: number;
@@ -18,18 +18,11 @@ export default function DrawingCanvas({
   onErasingChange,
 }: DrawingCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [isDrawing, setIsDrawing] = useState(false);
+  const isDrawingRef = useRef(false);
   const [internalIsErasing, setInternalIsErasing] = useState(false);
   
   // 외부에서 제어하는 경우와 내부에서 제어하는 경우 모두 지원
   const isErasing = externalIsErasing !== undefined ? externalIsErasing : internalIsErasing;
-  const setIsErasing = (value: boolean) => {
-    if (onErasingChange) {
-      onErasingChange(value);
-    } else {
-      setInternalIsErasing(value);
-    }
-  };
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -47,7 +40,7 @@ export default function DrawingCanvas({
     ctx.lineJoin = 'round';
   }, [width, height]);
 
-  const getCanvasCoordinates = (clientX: number, clientY: number) => {
+  const getCanvasCoordinates = useCallback((clientX: number, clientY: number) => {
     const canvas = canvasRef.current;
     if (!canvas) return { x: 0, y: 0 };
 
@@ -59,9 +52,9 @@ export default function DrawingCanvas({
     const y = (clientY - rect.top) * scaleY;
 
     return { x, y };
-  };
+  }, []);
 
-  const startDrawing = (clientX: number, clientY: number) => {
+  const startDrawing = useCallback((clientX: number, clientY: number) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -70,13 +63,13 @@ export default function DrawingCanvas({
 
     const { x, y } = getCanvasCoordinates(clientX, clientY);
 
-    setIsDrawing(true);
+    isDrawingRef.current = true;
     ctx.beginPath();
     ctx.moveTo(x, y);
-  };
+  }, [getCanvasCoordinates]);
 
-  const draw = (clientX: number, clientY: number) => {
-    if (!isDrawing) return;
+  const draw = useCallback((clientX: number, clientY: number) => {
+    if (!isDrawingRef.current) return;
 
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -109,10 +102,10 @@ export default function DrawingCanvas({
         onDrawingChange(imageData);
       });
     }
-  };
+  }, [getCanvasCoordinates, externalIsErasing, internalIsErasing, onDrawingChange]);
 
-  const stopDrawing = () => {
-    setIsDrawing(false);
+  const stopDrawing = useCallback(() => {
+    isDrawingRef.current = false;
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -120,61 +113,78 @@ export default function DrawingCanvas({
     if (!ctx) return;
 
     ctx.beginPath();
-  };
+  }, []);
 
-  // 마우스 이벤트 핸들러
-  const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    e.preventDefault();
-    startDrawing(e.clientX, e.clientY);
-  };
-
-  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    e.preventDefault();
-    draw(e.clientX, e.clientY);
-  };
-
-  const handleMouseUp = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    e.preventDefault();
-    stopDrawing();
-  };
-
-  // 터치 이벤트 핸들러
-  const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
-    e.preventDefault(); // 스크롤 방지
-    const touch = e.touches[0];
-    if (touch) {
-      startDrawing(touch.clientX, touch.clientY);
-    }
-  };
-
-  const handleTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
-    e.preventDefault(); // 스크롤 방지
-    const touch = e.touches[0];
-    if (touch) {
-      draw(touch.clientX, touch.clientY);
-    }
-  };
-
-  const handleTouchEnd = (e: React.TouchEvent<HTMLCanvasElement>) => {
-    e.preventDefault();
-    stopDrawing();
-  };
-
-  const resetCanvas = () => {
+  // 터치 및 마우스 이벤트 리스너 (useEffect로 직접 추가)
+  useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    // 마우스 이벤트 핸들러
+    const handleMouseDown = (e: MouseEvent) => {
+      e.preventDefault();
+      startDrawing(e.clientX, e.clientY);
+    };
 
-    ctx.fillStyle = 'white';
-    ctx.fillRect(0, 0, width, height);
+    const handleMouseMove = (e: MouseEvent) => {
+      e.preventDefault();
+      draw(e.clientX, e.clientY);
+    };
+
+    const handleMouseUp = (e: MouseEvent) => {
+      e.preventDefault();
+      stopDrawing();
+    };
+
+    // 터치 이벤트 핸들러
+    const handleTouchStart = (e: TouchEvent) => {
+      e.preventDefault(); // 스크롤 방지
+      e.stopPropagation();
+      const touch = e.touches[0];
+      if (touch) {
+        startDrawing(touch.clientX, touch.clientY);
+      }
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      e.preventDefault(); // 스크롤 방지
+      e.stopPropagation();
+      const touch = e.touches[0];
+      if (touch) {
+        draw(touch.clientX, touch.clientY);
+      }
+    };
+
+    const handleTouchEnd = (e: TouchEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      stopDrawing();
+    };
+
+    // 이벤트 리스너 추가 (passive: false로 설정해야 preventDefault가 작동함)
+    canvas.addEventListener('mousedown', handleMouseDown);
+    canvas.addEventListener('mousemove', handleMouseMove);
+    canvas.addEventListener('mouseup', handleMouseUp);
+    canvas.addEventListener('mouseleave', stopDrawing);
     
-    if (onDrawingChange) {
-      const imageData = canvas.toDataURL('image/png');
-      onDrawingChange(imageData);
-    }
-  };
+    canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
+    canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+    canvas.addEventListener('touchend', handleTouchEnd, { passive: false });
+    canvas.addEventListener('touchcancel', handleTouchEnd, { passive: false });
+
+    // 클린업
+    return () => {
+      canvas.removeEventListener('mousedown', handleMouseDown);
+      canvas.removeEventListener('mousemove', handleMouseMove);
+      canvas.removeEventListener('mouseup', handleMouseUp);
+      canvas.removeEventListener('mouseleave', stopDrawing);
+      
+      canvas.removeEventListener('touchstart', handleTouchStart);
+      canvas.removeEventListener('touchmove', handleTouchMove);
+      canvas.removeEventListener('touchend', handleTouchEnd);
+      canvas.removeEventListener('touchcancel', handleTouchEnd);
+    };
+  }, [startDrawing, draw, stopDrawing]);
 
   const getImageData = (): string => {
     const canvas = canvasRef.current;
@@ -190,20 +200,22 @@ export default function DrawingCanvas({
   }, []);
 
   return (
-    <div className="w-full h-full">
+    <div 
+      className="w-full h-full"
+      style={{ touchAction: 'none', userSelect: 'none', WebkitUserSelect: 'none' }}
+    >
       <canvas
         ref={canvasRef}
         width={width}
         height={height}
-        className="w-full h-full cursor-crosshair bg-white touch-none"
-        style={{ display: 'block', touchAction: 'none' }}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={stopDrawing}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
+        className="w-full h-full cursor-crosshair bg-white"
+        style={{ 
+          display: 'block', 
+          touchAction: 'none',
+          userSelect: 'none',
+          WebkitUserSelect: 'none',
+          WebkitTouchCallout: 'none',
+        }}
       />
     </div>
   );
@@ -214,4 +226,3 @@ export function getCanvasImageData(canvasRef: React.RefObject<HTMLCanvasElement>
   if (!canvasRef.current) return '';
   return canvasRef.current.toDataURL('image/png');
 }
-
