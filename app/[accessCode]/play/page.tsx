@@ -173,6 +173,37 @@ function GamePage({
     // 유효성 검사 (로그 제거)
   }, [topic]);
 
+  // 게임 중 body 스크롤 방지 (모바일)
+  useEffect(() => {
+    // body와 html 스크롤 방지
+    document.body.style.overflow = 'hidden';
+    document.body.style.position = 'fixed';
+    document.body.style.width = '100%';
+    document.body.style.height = '100%';
+    document.documentElement.style.overflow = 'hidden';
+    
+    // 터치 이동 방지
+    const preventTouchMove = (e: TouchEvent) => {
+      // 캔버스에서의 터치는 허용
+      if ((e.target as HTMLElement)?.tagName === 'CANVAS') {
+        return;
+      }
+      e.preventDefault();
+    };
+    
+    document.addEventListener('touchmove', preventTouchMove, { passive: false });
+    
+    return () => {
+      // 컴포넌트 언마운트 시 복원
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+      document.body.style.height = '';
+      document.documentElement.style.overflow = '';
+      document.removeEventListener('touchmove', preventTouchMove);
+    };
+  }, []);
+
   const [currentWordIndex, setCurrentWordIndex] = useState(0);
   const [gameResults, setGameResults] = useState<any[]>([]);
   const [showProblemScreen, setShowProblemScreen] = useState(true); // 문제 제시 화면 표시 여부
@@ -802,9 +833,12 @@ function GamePage({
 
   // 캔버스 화면 (첫 번째 이미지 스타일)
   return (
-    <div className="min-h-screen bg-white">
+    <div 
+      className="h-screen bg-white overflow-hidden fixed inset-0"
+      style={{ touchAction: 'none' }}
+    >
       {/* 노란색 상단 바 */}
-      <div className="bg-yellow-400 w-full px-4 sm:px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-md">
+      <div className="bg-yellow-400 w-full px-4 sm:px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-md" style={{ touchAction: 'auto' }}>
         {/* 왼쪽: 문제 텍스트 */}
         <div className="flex-1 w-full sm:w-auto text-center sm:text-left">
           <p className="text-lg sm:text-xl font-semibold text-gray-900">
@@ -898,7 +932,10 @@ function GamePage({
       </div>
 
       {/* 캔버스 영역 - 흰색 배경 전체 */}
-      <div className="relative w-full h-[calc(100vh-80px)] bg-white">
+      <div 
+        className="relative w-full h-[calc(100vh-80px)] bg-white overflow-hidden"
+        style={{ touchAction: 'none' }}
+      >
         {/* 정답/오답 표시 - currentWord가 있을 때만 표시 */}
         {showResult && currentWord && (
           <div className={`absolute top-4 left-1/2 transform -translate-x-1/2 z-10 p-4 sm:p-6 rounded-lg text-center w-full max-w-2xl animate-scale-in pointer-events-none ${
