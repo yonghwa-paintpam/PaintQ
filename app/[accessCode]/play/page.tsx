@@ -144,7 +144,7 @@ export default function PlayPage() {
                 <p className="text-xl text-gray-600 mb-2">아직 생성된 주제가 없습니다</p>
                 <p className="text-gray-500">관리자 모드에서 주제를 생성해주세요</p>
                 <Link
-                  href="/admin"
+                  href={`/${accessCode}/admin`}
                   className="inline-block mt-4 px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors shadow-md hover:shadow-lg"
                 >
                   관리자 모드로 이동
