@@ -173,14 +173,23 @@ function GamePage({
     // 유효성 검사 (로그 제거)
   }, [topic]);
 
-  // 게임 중 body 스크롤 방지 (모바일/iPad)
+  // 게임 플레이 중에만 body 스크롤 방지 (모바일/iPad)
   useEffect(() => {
-    // html과 body에 game-active 클래스 추가
-    document.documentElement.classList.add('game-active');
-    document.body.classList.add('game-active');
+    // isPlaying이 true일 때만 스크롤 방지 (결과 페이지에서는 스크롤 허용)
+    if (isPlaying && !showProblemScreen) {
+      // html과 body에 game-active 클래스 추가
+      document.documentElement.classList.add('game-active');
+      document.body.classList.add('game-active');
+    } else {
+      // 게임 중이 아니면 스크롤 허용
+      document.documentElement.classList.remove('game-active');
+      document.body.classList.remove('game-active');
+    }
     
-    // 터치 이동 방지 (캔버스 제외)
+    // 터치 이동 방지 (캔버스 제외) - isPlaying일 때만
     const preventTouchMove = (e: TouchEvent) => {
+      if (!isPlaying || showProblemScreen) return; // 게임 중이 아니면 허용
+      
       const target = e.target as HTMLElement;
       // 캔버스에서의 터치는 허용
       if (target?.tagName === 'CANVAS') {
@@ -193,27 +202,15 @@ function GamePage({
       e.preventDefault();
     };
     
-    // 스크롤 이벤트도 방지
-    const preventScroll = (e: Event) => {
-      const target = e.target as HTMLElement;
-      if (target?.tagName !== 'CANVAS') {
-        e.preventDefault();
-      }
-    };
-    
     document.addEventListener('touchmove', preventTouchMove, { passive: false });
-    document.addEventListener('scroll', preventScroll, { passive: false });
-    window.addEventListener('scroll', preventScroll, { passive: false });
     
     return () => {
       // 컴포넌트 언마운트 시 복원
       document.documentElement.classList.remove('game-active');
       document.body.classList.remove('game-active');
       document.removeEventListener('touchmove', preventTouchMove);
-      document.removeEventListener('scroll', preventScroll);
-      window.removeEventListener('scroll', preventScroll);
     };
-  }, []);
+  }, [isPlaying, showProblemScreen]);
 
   const [currentWordIndex, setCurrentWordIndex] = useState(0);
   const [gameResults, setGameResults] = useState<any[]>([]);
@@ -982,7 +979,7 @@ function GamePage({
           {/* showResult가 설정되기 전까지는 말풍선을 표시 (정답 메시지가 표시되면 사라짐) */}
           {/* 정답일 때는 showResult가 설정되어도 AI 말풍선을 유지 (정답 메시지와 함께 표시) */}
           {isPlaying && !submitting && (
-            <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 bg-gray-200 rounded-lg shadow-sm p-3 min-w-[120px] max-w-[300px] pointer-events-none">
+            <div className="absolute bottom-16 sm:bottom-20 left-1/2 transform -translate-x-1/2 bg-gray-200 rounded-lg shadow-sm p-3 min-w-[120px] max-w-[300px] pointer-events-none">
               <div className="flex flex-col items-center justify-center gap-1">
                 {aiGuessHistory.length === 0 ? (
                   // 첫 추측 전: "..."
