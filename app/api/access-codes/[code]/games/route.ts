@@ -120,9 +120,9 @@ export async function POST(
         finalIsCorrect = analysisResult.isCorrect;
       } catch (aiError) {
         console.error('AI 분석 오류:', aiError);
-        // AI 분석 실패 시 Mock 결과 사용
-        finalAiGuess = word.word;
-        finalIsCorrect = true; // Mock에서는 항상 정답으로 처리
+        // AI 분석 실패 시 오답으로 처리 (Mock 제거)
+        finalAiGuess = 'AI 분석 실패';
+        finalIsCorrect = false;
       }
     }
 
