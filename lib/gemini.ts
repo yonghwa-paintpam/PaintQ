@@ -89,7 +89,9 @@ function initializeGemini() {
   const apiKey = process.env.GEMINI_API_KEY;
 
   if (!apiKey) {
-    throw new Error('GEMINI_API_KEY 환경 변수가 설정되지 않았습니다.');
+    // 디버깅: 환경 변수 목록 확인
+    const envKeys = Object.keys(process.env).filter(k => k.includes('GEMINI') || k.includes('GOOGLE'));
+    throw new Error(`GEMINI_API_KEY 환경 변수가 설정되지 않았습니다. 관련 환경변수: ${envKeys.join(', ') || '없음'}`);
   }
 
   genAI = new GoogleGenerativeAI(apiKey);
