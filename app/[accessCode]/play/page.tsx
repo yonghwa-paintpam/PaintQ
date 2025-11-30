@@ -173,45 +173,6 @@ function GamePage({
     // 유효성 검사 (로그 제거)
   }, [topic]);
 
-  // 게임 플레이 중에만 body 스크롤 방지 (모바일/iPad)
-  useEffect(() => {
-    // isPlaying이 true일 때만 스크롤 방지 (결과 페이지에서는 스크롤 허용)
-    if (isPlaying && !showProblemScreen) {
-      // html과 body에 game-active 클래스 추가
-      document.documentElement.classList.add('game-active');
-      document.body.classList.add('game-active');
-    } else {
-      // 게임 중이 아니면 스크롤 허용
-      document.documentElement.classList.remove('game-active');
-      document.body.classList.remove('game-active');
-    }
-    
-    // 터치 이동 방지 (캔버스 제외) - isPlaying일 때만
-    const preventTouchMove = (e: TouchEvent) => {
-      if (!isPlaying || showProblemScreen) return; // 게임 중이 아니면 허용
-      
-      const target = e.target as HTMLElement;
-      // 캔버스에서의 터치는 허용
-      if (target?.tagName === 'CANVAS') {
-        return;
-      }
-      // 버튼 클릭은 허용
-      if (target?.tagName === 'BUTTON' || target?.closest('button')) {
-        return;
-      }
-      e.preventDefault();
-    };
-    
-    document.addEventListener('touchmove', preventTouchMove, { passive: false });
-    
-    return () => {
-      // 컴포넌트 언마운트 시 복원
-      document.documentElement.classList.remove('game-active');
-      document.body.classList.remove('game-active');
-      document.removeEventListener('touchmove', preventTouchMove);
-    };
-  }, [isPlaying, showProblemScreen]);
-
   const [currentWordIndex, setCurrentWordIndex] = useState(0);
   const [gameResults, setGameResults] = useState<any[]>([]);
   const [showProblemScreen, setShowProblemScreen] = useState(true); // 문제 제시 화면 표시 여부
@@ -250,6 +211,45 @@ function GamePage({
   useEffect(() => {
     gameResultsLengthRef.current = gameResults.length;
   }, [gameResults.length]);
+
+  // 게임 플레이 중에만 body 스크롤 방지 (모바일/iPad)
+  useEffect(() => {
+    // isPlaying이 true일 때만 스크롤 방지 (결과 페이지에서는 스크롤 허용)
+    if (isPlaying && !showProblemScreen) {
+      // html과 body에 game-active 클래스 추가
+      document.documentElement.classList.add('game-active');
+      document.body.classList.add('game-active');
+    } else {
+      // 게임 중이 아니면 스크롤 허용
+      document.documentElement.classList.remove('game-active');
+      document.body.classList.remove('game-active');
+    }
+    
+    // 터치 이동 방지 (캔버스 제외) - isPlaying일 때만
+    const preventTouchMove = (e: TouchEvent) => {
+      if (!isPlaying || showProblemScreen) return; // 게임 중이 아니면 허용
+      
+      const target = e.target as HTMLElement;
+      // 캔버스에서의 터치는 허용
+      if (target?.tagName === 'CANVAS') {
+        return;
+      }
+      // 버튼 클릭은 허용
+      if (target?.tagName === 'BUTTON' || target?.closest('button')) {
+        return;
+      }
+      e.preventDefault();
+    };
+    
+    document.addEventListener('touchmove', preventTouchMove, { passive: false });
+    
+    return () => {
+      // 컴포넌트 언마운트 시 복원
+      document.documentElement.classList.remove('game-active');
+      document.body.classList.remove('game-active');
+      document.removeEventListener('touchmove', preventTouchMove);
+    };
+  }, [isPlaying, showProblemScreen]);
 
   // topic.words가 비어있거나 currentWordIndex가 범위를 벗어났는지 확인
   const wordsLength = topic?.words?.length || 0;
