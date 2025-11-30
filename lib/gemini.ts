@@ -30,19 +30,20 @@ function compareAnswers(aiGuess: string, correctAnswer: string): boolean {
     return true;
   }
   
-  // 3. 명시적으로 정의된 유사 단어 매핑만 인정
+  // 3. 명시적으로 정의된 유사 단어 매핑만 인정 (엄격하게)
   // 주의: 포함 관계는 인정하지 않음 (예: "바오밥나무"와 "나무"는 다른 것으로 간주)
+  // 부분 일치도 인정하지 않음 (예: "고양"은 "고양이"와 다름)
   const similarWords: Record<string, string[]> = {
-    '자동차': ['차', '자동차', '오토', 'car', 'automobile'],
-    '고양이': ['고양이', '냥이', '고양', 'cat', '고양'],
+    '자동차': ['자동차', '차', 'car'],
+    '고양이': ['고양이', '냥이', 'cat'],
     '강아지': ['강아지', '개', '멍멍이', 'dog', 'puppy'],
-    '바나나': ['바나나', '바나', 'banana'],
+    '바나나': ['바나나', 'banana'],
     '사과': ['사과', 'apple'],
-    '비행기': ['비행기', '항공기', '비행', 'airplane', 'plane'],
-    '기차': ['기차', '열차', '기차', 'train'],
-    '자전거': ['자전거', '자전', 'bicycle', 'bike'],
+    '비행기': ['비행기', '항공기', 'airplane', 'plane'],
+    '기차': ['기차', '열차', 'train'],
+    '자전거': ['자전거', 'bicycle', 'bike'],
     '배': ['배', '선박', 'ship', 'boat'],
-    'LG': ['LG', 'lg', '엘지', '엘지', 'L.G'],
+    'LG': ['LG', 'lg', '엘지', 'L.G'],
   };
   
   // 정답의 유사 단어 목록 확인
@@ -129,14 +130,15 @@ export async function analyzeDrawing(
     const prompt = `
 이 그림을 분석해주세요.
 
-요청사항:
-1. 이 그림이 무엇처럼 보이는지 한 단어로 답변해주세요.
-2. 그림을 정확히 관찰하고, 실제로 그려진 내용만을 바탕으로 추측해주세요.
-3. 불확실하거나 명확하지 않으면 "알 수 없음"이라고 답변해주세요.
+중요 지침:
+1. 그림을 매우 정확하게 관찰하고, 실제로 그려진 내용만을 바탕으로 추측해주세요.
+2. 그림이 단순한 도형(원, 사각형, 선 등)이거나 명확하지 않으면 반드시 "알 수 없음"이라고 답변해주세요.
+3. 확신이 없거나 애매하면 "알 수 없음"이라고 답변해주세요.
+4. 한 단어로만 답변해주세요. 설명이나 추가 텍스트는 포함하지 마세요.
 
 응답 형식은 반드시 다음 JSON 형식으로 해주세요:
 {
-  "aiGuess": "추측한 단어"
+  "aiGuess": "추측한 단어 또는 알 수 없음"
 }
 `;
 
@@ -177,16 +179,35 @@ export async function analyzeDrawing(
       } else {
         // JSON이 없으면 첫 번째 줄을 추측으로 사용
         aiGuess = responseText.trim().split('\n')[0] || '알 수 없음';
-        // "알 수 없음", "모르겠", "불확실" 등의 키워드가 있으면 "알 수 없음"으로 처리
-        const lowerGuess = aiGuess.toLowerCase();
-        if (lowerGuess.includes('알 수 없') || lowerGuess.includes('모르겠') || 
-            lowerGuess.includes('불확실') || lowerGuess.includes('unknown')) {
-          aiGuess = '알 수 없음';
-        }
+      }
+      
+      // 불확실한 표현이 있으면 "알 수 없음"으로 처리
+      const lowerGuess = aiGuess.toLowerCase().trim();
+      const uncertainKeywords = [
+        '알 수 없', '모르겠', '불확실', 'unknown', 'unclear', 
+        '모르', '확실하지', '애매', '구분', '판단', '추측',
+        '원', '동그라미', '사각형', '선', '도형', 'circle', 'square', 'line', 'shape'
+      ];
+      
+      if (uncertainKeywords.some(keyword => lowerGuess.includes(keyword))) {
+        aiGuess = '알 수 없음';
+      }
+      
+      // 너무 짧거나 의미 없는 답변도 "알 수 없음"으로 처리
+      if (aiGuess.length < 2 || aiGuess === '?' || aiGuess === '??') {
+        aiGuess = '알 수 없음';
       }
     } catch (parseError) {
-      // JSON 파싱 실패 시 첫 번째 줄을 추측으로 사용
-      aiGuess = responseText.trim().split('\n')[0] || '알 수 없음';
+      // JSON 파싱 실패 시 "알 수 없음"으로 처리
+      aiGuess = '알 수 없음';
+    }
+
+    // "알 수 없음"이면 무조건 오답
+    if (aiGuess === '알 수 없음' || !aiGuess || aiGuess.trim() === '') {
+      return {
+        aiGuess: '알 수 없음',
+        isCorrect: false,
+      };
     }
 
     // 서버에서 정답 비교 (엄격한 비교)
