@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect, useState, useCallback } from 'react';
+import { useRef, useEffect, useState } from 'react';
 
 interface DrawingCanvasProps {
   width?: number;
@@ -24,6 +24,23 @@ export default function DrawingCanvas({
   // 외부에서 제어하는 경우와 내부에서 제어하는 경우 모두 지원
   const isErasing = externalIsErasing !== undefined ? externalIsErasing : internalIsErasing;
 
+  // 최신 props/state를 ref에 저장 (이벤트 리스너 재등록 없이 최신 값 참조)
+  const onDrawingChangeRef = useRef(onDrawingChange);
+  const externalIsErasingRef = useRef(externalIsErasing);
+  const internalIsErasingRef = useRef(internalIsErasing);
+  
+  useEffect(() => {
+    onDrawingChangeRef.current = onDrawingChange;
+  }, [onDrawingChange]);
+  
+  useEffect(() => {
+    externalIsErasingRef.current = externalIsErasing;
+  }, [externalIsErasing]);
+  
+  useEffect(() => {
+    internalIsErasingRef.current = internalIsErasing;
+  }, [internalIsErasing]);
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -40,85 +57,73 @@ export default function DrawingCanvas({
     ctx.lineJoin = 'round';
   }, [width, height]);
 
-  const getCanvasCoordinates = useCallback((clientX: number, clientY: number) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return { x: 0, y: 0 };
-
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-
-    const x = (clientX - rect.left) * scaleX;
-    const y = (clientY - rect.top) * scaleY;
-
-    return { x, y };
-  }, []);
-
-  const startDrawing = useCallback((clientX: number, clientY: number) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const { x, y } = getCanvasCoordinates(clientX, clientY);
-
-    isDrawingRef.current = true;
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-  }, [getCanvasCoordinates]);
-
-  const draw = useCallback((clientX: number, clientY: number) => {
-    if (!isDrawingRef.current) return;
-
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const { x, y } = getCanvasCoordinates(clientX, clientY);
-
-    // 외부에서 전달된 isErasing 사용
-    const currentIsErasing = externalIsErasing !== undefined ? externalIsErasing : internalIsErasing;
-    
-    if (currentIsErasing) {
-      ctx.globalCompositeOperation = 'destination-out';
-      ctx.lineWidth = 20;
-    } else {
-      ctx.globalCompositeOperation = 'source-over';
-      ctx.lineWidth = 3;
-      ctx.strokeStyle = 'black';
-    }
-
-    ctx.lineTo(x, y);
-    ctx.stroke();
-    
-    // 이미지 데이터 업데이트 (그리는 동안에도 실시간으로 업데이트)
-    if (onDrawingChange) {
-      // requestAnimationFrame을 사용하여 성능 최적화
-      requestAnimationFrame(() => {
-        const imageData = canvas.toDataURL('image/png');
-        onDrawingChange(imageData);
-      });
-    }
-  }, [getCanvasCoordinates, externalIsErasing, internalIsErasing, onDrawingChange]);
-
-  const stopDrawing = useCallback(() => {
-    isDrawingRef.current = false;
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    ctx.beginPath();
-  }, []);
-
-  // 터치 및 마우스 이벤트 리스너 (useEffect로 직접 추가)
+  // 터치 및 마우스 이벤트 리스너 (한 번만 등록, ref로 최신 값 참조)
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+
+    const getCoords = (clientX: number, clientY: number) => {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      return {
+        x: (clientX - rect.left) * scaleX,
+        y: (clientY - rect.top) * scaleY,
+      };
+    };
+
+    const startDrawing = (clientX: number, clientY: number) => {
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      const { x, y } = getCoords(clientX, clientY);
+      isDrawingRef.current = true;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+    };
+
+    const draw = (clientX: number, clientY: number) => {
+      if (!isDrawingRef.current) return;
+
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      const { x, y } = getCoords(clientX, clientY);
+
+      // ref에서 최신 isErasing 값 참조
+      const currentIsErasing = externalIsErasingRef.current !== undefined 
+        ? externalIsErasingRef.current 
+        : internalIsErasingRef.current;
+      
+      if (currentIsErasing) {
+        ctx.globalCompositeOperation = 'destination-out';
+        ctx.lineWidth = 20;
+      } else {
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = 'black';
+      }
+
+      ctx.lineTo(x, y);
+      ctx.stroke();
+      
+      // ref에서 최신 onDrawingChange 참조
+      const callback = onDrawingChangeRef.current;
+      if (callback) {
+        requestAnimationFrame(() => {
+          const imageData = canvas.toDataURL('image/png');
+          callback(imageData);
+        });
+      }
+    };
+
+    const stopDrawing = () => {
+      isDrawingRef.current = false;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.beginPath();
+      }
+    };
 
     // 마우스 이벤트 핸들러
     const handleMouseDown = (e: MouseEvent) => {
@@ -136,9 +141,13 @@ export default function DrawingCanvas({
       stopDrawing();
     };
 
+    const handleMouseLeave = () => {
+      stopDrawing();
+    };
+
     // 터치 이벤트 핸들러
     const handleTouchStart = (e: TouchEvent) => {
-      e.preventDefault(); // 스크롤 방지
+      e.preventDefault();
       e.stopPropagation();
       const touch = e.touches[0];
       if (touch) {
@@ -147,7 +156,7 @@ export default function DrawingCanvas({
     };
 
     const handleTouchMove = (e: TouchEvent) => {
-      e.preventDefault(); // 스크롤 방지
+      e.preventDefault();
       e.stopPropagation();
       const touch = e.touches[0];
       if (touch) {
@@ -165,7 +174,7 @@ export default function DrawingCanvas({
     canvas.addEventListener('mousedown', handleMouseDown);
     canvas.addEventListener('mousemove', handleMouseMove);
     canvas.addEventListener('mouseup', handleMouseUp);
-    canvas.addEventListener('mouseleave', stopDrawing);
+    canvas.addEventListener('mouseleave', handleMouseLeave);
     
     canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
     canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
@@ -177,14 +186,14 @@ export default function DrawingCanvas({
       canvas.removeEventListener('mousedown', handleMouseDown);
       canvas.removeEventListener('mousemove', handleMouseMove);
       canvas.removeEventListener('mouseup', handleMouseUp);
-      canvas.removeEventListener('mouseleave', stopDrawing);
+      canvas.removeEventListener('mouseleave', handleMouseLeave);
       
       canvas.removeEventListener('touchstart', handleTouchStart);
       canvas.removeEventListener('touchmove', handleTouchMove);
       canvas.removeEventListener('touchend', handleTouchEnd);
       canvas.removeEventListener('touchcancel', handleTouchEnd);
     };
-  }, [startDrawing, draw, stopDrawing]);
+  }, []); // ← 빈 의존성: 이벤트 리스너는 한 번만 등록
 
   const getImageData = (): string => {
     const canvas = canvasRef.current;
