@@ -73,20 +73,20 @@ export default function DrawingCanvas({
     };
 
     const startDrawing = (clientX: number, clientY: number) => {
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
 
       const { x, y } = getCoords(clientX, clientY);
-      isDrawingRef.current = true;
-      ctx.beginPath();
-      ctx.moveTo(x, y);
+    isDrawingRef.current = true;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
     };
 
     const draw = (clientX: number, clientY: number) => {
-      if (!isDrawingRef.current) return;
+    if (!isDrawingRef.current) return;
 
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
 
       const { x, y } = getCoords(clientX, clientY);
 
@@ -94,34 +94,34 @@ export default function DrawingCanvas({
       const currentIsErasing = externalIsErasingRef.current !== undefined 
         ? externalIsErasingRef.current 
         : internalIsErasingRef.current;
-      
-      if (currentIsErasing) {
-        ctx.globalCompositeOperation = 'destination-out';
-        ctx.lineWidth = 20;
-      } else {
-        ctx.globalCompositeOperation = 'source-over';
-        ctx.lineWidth = 3;
-        ctx.strokeStyle = 'black';
-      }
+    
+    if (currentIsErasing) {
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.lineWidth = 20;
+    } else {
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = 'black';
+    }
 
-      ctx.lineTo(x, y);
-      ctx.stroke();
-      
+    ctx.lineTo(x, y);
+    ctx.stroke();
+    
       // ref에서 최신 onDrawingChange 참조
       const callback = onDrawingChangeRef.current;
       if (callback) {
-        requestAnimationFrame(() => {
-          const imageData = canvas.toDataURL('image/png');
+      requestAnimationFrame(() => {
+        const imageData = canvas.toDataURL('image/png');
           callback(imageData);
-        });
-      }
+      });
+    }
     };
 
     const stopDrawing = () => {
-      isDrawingRef.current = false;
-      const ctx = canvas.getContext('2d');
+    isDrawingRef.current = false;
+    const ctx = canvas.getContext('2d');
       if (ctx) {
-        ctx.beginPath();
+    ctx.beginPath();
       }
     };
 
