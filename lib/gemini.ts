@@ -144,6 +144,11 @@ export async function analyzeDrawing(
     ]);
 
     const responseText = result.response.text();
+    
+    // 디버깅: AI 응답 로그
+    console.log('=== Gemini API 응답 ===');
+    console.log('정답 단어:', correctAnswer);
+    console.log('AI 원본 응답:', responseText);
 
     if (!responseText) {
       throw new Error('AI 응답을 받지 못했습니다.');
@@ -191,6 +196,11 @@ export async function analyzeDrawing(
 
     // 서버에서 정답 비교 (엄격한 비교)
     const isCorrect = compareAnswers(aiGuess, correctAnswer);
+    
+    // 디버깅: 최종 결과 로그
+    console.log('AI 추측:', aiGuess);
+    console.log('정답 여부:', isCorrect);
+    console.log('========================');
 
     return {
       aiGuess,
