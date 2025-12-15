@@ -144,10 +144,6 @@ export async function analyzeDrawing(
     ]);
 
     const responseText = result.response.text();
-    
-    // 디버깅 로그
-    console.log('[Gemini Debug] 정답:', correctAnswer);
-    console.log('[Gemini Debug] AI 원본 응답:', responseText);
 
     if (!responseText) {
       throw new Error('AI 응답을 받지 못했습니다.');
@@ -195,19 +191,13 @@ export async function analyzeDrawing(
 
     // 서버에서 정답 비교 (엄격한 비교)
     const isCorrect = compareAnswers(aiGuess, correctAnswer);
-    
-    // 디버깅 로그
-    console.log('[Gemini Debug] AI 추측:', aiGuess);
-    console.log('[Gemini Debug] 정답 여부:', isCorrect);
 
     return {
       aiGuess,
       isCorrect,
     };
   } catch (error) {
-    console.error('[Gemini Debug] API 오류 발생!');
-    console.error('[Gemini Debug] 오류 타입:', error instanceof Error ? error.constructor.name : typeof error);
-    console.error('[Gemini Debug] 오류 메시지:', error instanceof Error ? error.message : String(error));
+    console.error('Gemini API 오류:', error);
     throw new Error(`그림 분석 중 오류가 발생했습니다: ${error instanceof Error ? error.message : '알 수 없는 오류'}`);
   }
 }
