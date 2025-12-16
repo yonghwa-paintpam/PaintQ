@@ -118,7 +118,7 @@ export default function PlayPage() {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
           <h1 className="text-3xl sm:text-4xl font-bold text-gray-800">🎮 플레이 모드</h1>
           <Link
-            href="/"
+            href="/home"
             className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors shadow-md hover:shadow-lg"
           >
             홈으로

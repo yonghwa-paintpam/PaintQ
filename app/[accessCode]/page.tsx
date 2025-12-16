@@ -9,10 +9,10 @@ export default function LegacyAccessCodePage() {
   const accessCode = params.accessCode as string;
 
   useEffect(() => {
-    // 접속 코드를 sessionStorage에 저장하고 /play로 리다이렉트
+    // 접속 코드를 sessionStorage에 저장하고 /home으로 리다이렉트
     if (accessCode && /^\d{4}$/.test(accessCode)) {
       sessionStorage.setItem('paintq_access_code', accessCode);
-      router.replace('/play');
+      router.replace('/home');
     } else {
       router.replace('/');
     }

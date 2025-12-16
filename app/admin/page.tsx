@@ -224,10 +224,10 @@ export default function AdminPage() {
             </p>
           </div>
           <Link
-            href="/play"
+            href="/home"
             className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
           >
-            ← 돌아가기
+            ← 홈으로
           </Link>
         </div>
 

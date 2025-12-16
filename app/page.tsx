@@ -57,8 +57,8 @@ export default function Home() {
       // 접속 코드를 sessionStorage에 저장
       sessionStorage.setItem('paintq_access_code', accessCode);
       
-      // 플레이 화면으로 이동 (URL에 접속 코드 노출 안 함)
-      router.push('/play');
+      // 홈 화면으로 이동 (플레이/관리자 선택)
+      router.push('/home');
     } catch {
       setError('접속 코드를 확인하는 중 오류가 발생했습니다.');
       setLoading(false);
