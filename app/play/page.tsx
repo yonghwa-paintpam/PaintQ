@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import type { TopicWithWords } from '@/types';
 import Timer from '@/components/Timer/Timer';
@@ -9,22 +9,29 @@ import DrawingCanvas from '@/components/Canvas/DrawingCanvas';
 import LoadingSpinner from '@/components/Loading/LoadingSpinner';
 
 export default function PlayPage() {
-  const params = useParams();
   const router = useRouter();
-  const accessCode = params.accessCode as string;
+  const [accessCode, setAccessCode] = useState<string>('');
   const [topics, setTopics] = useState<TopicWithWords[]>([]);
   const [selectedTopic, setSelectedTopic] = useState<TopicWithWords | null>(null);
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
   const [accessCodeValid, setAccessCodeValid] = useState(false);
 
+  // sessionStorage에서 접속 코드 읽기
   useEffect(() => {
-    if (!accessCode || !/^\d{4}$/.test(accessCode)) {
+    const storedCode = sessionStorage.getItem('paintq_access_code');
+    if (!storedCode || !/^\d{4}$/.test(storedCode)) {
       router.push('/');
       return;
     }
+    setAccessCode(storedCode);
+  }, [router]);
+
+  // 접속 코드가 설정되면 유효성 검사
+  useEffect(() => {
+    if (!accessCode) return;
     validateAccessCode();
-  }, [accessCode, router]);
+  }, [accessCode]);
 
   const validateAccessCode = async () => {
     try {
@@ -86,6 +93,15 @@ export default function PlayPage() {
     setSelectedTopic(topic);
   };
 
+  // accessCode가 아직 로드되지 않았으면 로딩 표시
+  if (!accessCode) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-blue-50 to-cyan-50">
+        <LoadingSpinner size="lg" text="로딩 중..." />
+      </div>
+    );
+  }
+
   if (selectedTopic) {
     return (
       <GamePage
@@ -144,7 +160,7 @@ export default function PlayPage() {
                 <p className="text-xl text-gray-600 mb-2">아직 생성된 주제가 없습니다</p>
                 <p className="text-gray-500">관리자 모드에서 주제를 생성해주세요</p>
                 <Link
-                  href={`/${accessCode}/admin`}
+                  href="/admin"
                   className="inline-block mt-4 px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors shadow-md hover:shadow-lg"
                 >
                   관리자 모드로 이동
