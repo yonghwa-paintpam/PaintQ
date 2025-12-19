@@ -27,3 +27,4 @@ const nextConfig = {
 
 module.exports = nextConfig
 
+// force rebuild Fri Dec 19 15:42:51 KST 2025
