@@ -30,8 +30,18 @@ export async function GET() {
   }
 }
 
-export async function POST() {
+export async function POST(request: Request) {
+  // 요청 본문에서 name 추출 (선택적) - try 블록 외부에서 선언
+  let userName: string | null = null;
   try {
+    const body = await request.json();
+    userName = body.name || null;
+  } catch {
+    // JSON 파싱 실패 시 name 없이 진행
+  }
+
+  try {
+
     // 순차 할당: 모든 접속 코드를 가져와서 숫자 코드 중 가장 큰 값 찾기
     const allAccessCodes = await prisma.accessCode.findMany({
       orderBy: { code: 'desc' },
@@ -76,6 +86,7 @@ export async function POST() {
     const accessCode = await prisma.accessCode.create({
       data: {
         code: nextCode,
+        name: userName,
         isActive: true,
       },
     });
@@ -107,6 +118,7 @@ export async function POST() {
           const accessCode = await prisma.accessCode.create({
             data: {
               code: nextCode,
+              name: userName,
               isActive: true,
             },
           });

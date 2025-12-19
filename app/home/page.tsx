@@ -8,6 +8,7 @@ import LoadingSpinner from '@/components/Loading/LoadingSpinner';
 export default function HomePage() {
   const router = useRouter();
   const [accessCode, setAccessCode] = useState<string>('');
+  const [userName, setUserName] = useState<string>('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -17,7 +18,23 @@ export default function HomePage() {
       return;
     }
     setAccessCode(storedCode);
-    setLoading(false);
+    
+    // 사용자 이름 가져오기
+    const fetchUserName = async () => {
+      try {
+        const response = await fetch(`/api/access-codes/${storedCode}`);
+        if (response.ok) {
+          const data = await response.json();
+          setUserName(data.name || '');
+        }
+      } catch {
+        // 오류 무시
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchUserName();
   }, [router]);
 
   if (loading || !accessCode) {
@@ -35,9 +52,15 @@ export default function HomePage() {
           <h1 className="text-5xl sm:text-6xl md:text-7xl font-bold text-gray-800 mb-4">
             🎨 PaintQ
           </h1>
-          <p className="text-lg sm:text-xl text-gray-600 mb-4">
-            접속 코드: <span className="font-bold text-blue-600">{accessCode}</span>
-          </p>
+          {userName ? (
+            <p className="text-lg sm:text-xl text-gray-600 mb-4">
+              <span className="font-bold text-blue-600">{userName}</span>님 환영합니다!
+            </p>
+          ) : (
+            <p className="text-lg sm:text-xl text-gray-600 mb-4">
+              접속 코드: <span className="font-bold text-blue-600">{accessCode}</span>
+            </p>
+          )}
         </div>
         
         <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 justify-center">

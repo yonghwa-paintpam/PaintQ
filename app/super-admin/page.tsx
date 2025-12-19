@@ -8,6 +8,7 @@ import LoadingSpinner from '@/components/Loading/LoadingSpinner';
 interface AccessCode {
   id: string;
   code: string;
+  name: string | null; // 사용자/고객 이름
   createdAt: string;
   lastUsedAt: string | null;
   isActive: boolean;
@@ -44,6 +45,8 @@ function SuperAdminContent() {
   const [drawings, setDrawings] = useState<Drawing[]>([]);
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [newName, setNewName] = useState('');
 
   useEffect(() => {
     const key = searchParams.get('key');
@@ -86,13 +89,26 @@ function SuperAdminContent() {
   };
 
   const handleCreateAccessCode = async () => {
+    if (!newName.trim()) {
+      alert('사용자 이름을 입력해주세요.');
+      return;
+    }
+    
     setCreating(true);
     try {
       const response = await fetch('/api/access-codes', {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: newName.trim(),
+        }),
       });
       if (response.ok) {
         await fetchAccessCodes();
+        setNewName('');
+        setShowCreateForm(false);
       } else {
         alert('접속 코드 생성에 실패했습니다.');
       }
@@ -191,13 +207,52 @@ function SuperAdminContent() {
         </div>
 
         <div className="mb-6">
-          <button
-            onClick={handleCreateAccessCode}
-            disabled={creating}
-            className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {creating ? '생성 중...' : '+ 새 접속 코드 생성'}
-          </button>
+          {!showCreateForm ? (
+            <button
+              onClick={() => setShowCreateForm(true)}
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+            >
+              + 새 접속 코드 생성
+            </button>
+          ) : (
+            <div className="bg-white rounded-lg shadow-lg p-6 max-w-md">
+              <h3 className="text-lg font-bold mb-4 text-gray-800">새 접속 코드 생성</h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    사용자/고객 이름 *
+                  </label>
+                  <input
+                    type="text"
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="예: 삼성전자, 김철수"
+                    disabled={creating}
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleCreateAccessCode}
+                    disabled={creating || !newName.trim()}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {creating ? '생성 중...' : '생성'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowCreateForm(false);
+                      setNewName('');
+                    }}
+                    disabled={creating}
+                    className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-400 transition-colors disabled:opacity-50"
+                  >
+                    취소
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {loading && !selectedCode ? (
@@ -225,7 +280,10 @@ function SuperAdminContent() {
                     >
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="font-bold text-lg text-gray-900">{ac.code}</p>
+                          <p className="font-bold text-lg text-gray-900">
+                            {ac.name || '(이름 없음)'} 
+                            <span className="text-blue-600 ml-2">({ac.code})</span>
+                          </p>
                           <p className="text-sm text-gray-700 font-medium">
                             주제: {ac._count?.topics || 0}개, 게임: {ac._count?.games || 0}개
                           </p>
