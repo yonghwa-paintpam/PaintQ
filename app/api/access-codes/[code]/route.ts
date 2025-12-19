@@ -98,7 +98,7 @@ export async function PATCH(
   try {
     const { code } = params;
     const body = await request.json();
-    const { isActive } = body;
+    const { isActive, name } = body;
 
     const accessCode = await prisma.accessCode.findUnique({
       where: { code },
@@ -116,6 +116,7 @@ export async function PATCH(
       data: {
         isActive: isActive !== undefined ? isActive : accessCode.isActive,
         deactivatedAt: isActive === false ? new Date() : null,
+        name: name !== undefined ? name : accessCode.name,
       },
     });
 

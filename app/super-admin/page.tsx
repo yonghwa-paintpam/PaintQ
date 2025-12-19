@@ -47,6 +47,8 @@ function SuperAdminContent() {
   const [creating, setCreating] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newName, setNewName] = useState('');
+  const [editingCode, setEditingCode] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
 
   useEffect(() => {
     const key = searchParams.get('key');
@@ -116,6 +118,29 @@ function SuperAdminContent() {
       alert('접속 코드 생성에 실패했습니다.');
     } finally {
       setCreating(false);
+    }
+  };
+
+  const handleUpdateName = async (code: string) => {
+    try {
+      const response = await fetch(`/api/access-codes/${code}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: editName.trim() || null,
+        }),
+      });
+      if (response.ok) {
+        await fetchAccessCodes();
+        setEditingCode(null);
+        setEditName('');
+      } else {
+        alert('이름 변경에 실패했습니다.');
+      }
+    } catch {
+      alert('이름 변경에 실패했습니다.');
     }
   };
 
@@ -279,11 +304,51 @@ function SuperAdminContent() {
                       onClick={() => handleSelectCode(ac.code)}
                     >
                       <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-bold text-lg text-gray-900">
-                            {ac.name || '(이름 없음)'} 
-                            <span className="text-blue-600 ml-2">({ac.code})</span>
-                          </p>
+                        <div className="flex-1">
+                          {editingCode === ac.code ? (
+                            <div className="flex items-center gap-2 mb-2" onClick={(e) => e.stopPropagation()}>
+                              <input
+                                type="text"
+                                value={editName}
+                                onChange={(e) => setEditName(e.target.value)}
+                                className="flex-1 px-2 py-1 border border-gray-300 rounded text-sm text-gray-900"
+                                placeholder="이름 입력"
+                                autoFocus
+                              />
+                              <button
+                                onClick={() => handleUpdateName(ac.code)}
+                                className="px-2 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700"
+                              >
+                                저장
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setEditingCode(null);
+                                  setEditName('');
+                                }}
+                                className="px-2 py-1 bg-gray-300 text-gray-700 rounded text-xs hover:bg-gray-400"
+                              >
+                                취소
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2 mb-1">
+                              <p className="font-bold text-lg text-gray-900">
+                                {ac.name || '(이름 없음)'} 
+                                <span className="text-blue-600 ml-2">({ac.code})</span>
+                              </p>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingCode(ac.code);
+                                  setEditName(ac.name || '');
+                                }}
+                                className="text-xs text-gray-500 hover:text-gray-700"
+                              >
+                                ✏️
+                              </button>
+                            </div>
+                          )}
                           <p className="text-sm text-gray-700 font-medium">
                             주제: {ac._count?.topics || 0}개, 게임: {ac._count?.games || 0}개
                           </p>
