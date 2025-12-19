@@ -90,7 +90,20 @@ export default function PlayPage() {
       return;
     }
     
-    setSelectedTopic(topic);
+    // 문제를 랜덤하게 셔플
+    const shuffledWords = [...topic.words].sort(() => Math.random() - 0.5);
+    
+    // questionCount가 설정되어 있으면 그 개수만큼만 추출, 아니면 전체
+    const questionCount = topic.questionCount || shuffledWords.length;
+    const selectedWords = shuffledWords.slice(0, Math.min(questionCount, shuffledWords.length));
+    
+    // 수정된 topic 객체 생성
+    const modifiedTopic = {
+      ...topic,
+      words: selectedWords,
+    };
+    
+    setSelectedTopic(modifiedTopic);
   };
 
   // accessCode가 아직 로드되지 않았으면 로딩 표시
@@ -148,7 +161,9 @@ export default function PlayPage() {
                     {topic.name}
                   </h3>
                   <p className="text-sm text-gray-500">
-                    {topic.words.length > 0 ? `${topic.words.length}개의 문제` : '문제 없음'}
+                    {topic.words.length > 0 
+                      ? `${topic.questionCount || topic.words.length}문제 출제 (랜덤)` 
+                      : '문제 없음'}
                   </p>
                 </button>
               ))}

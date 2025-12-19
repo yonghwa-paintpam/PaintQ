@@ -76,7 +76,7 @@ export async function PUT(
   try {
     const { code, topicId } = params;
     const body = await request.json();
-    const { name, words } = body;
+    const { name, words, questionCount } = body;
 
     if (!name || !words || !Array.isArray(words) || words.length === 0) {
       return NextResponse.json(
@@ -134,6 +134,7 @@ export async function PUT(
       where: { id: topicId },
       data: {
         name: name.trim(),
+        questionCount: questionCount || null, // 출제 문제 수 (null이면 전체 출제)
         words: {
           create: words
             .filter((word: string) => word.trim() !== '')

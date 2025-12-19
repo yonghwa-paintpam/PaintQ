@@ -3,6 +3,7 @@
 export interface Topic {
   id: string;
   name: string;
+  questionCount: number | null; // 출제할 문제 수 (null이면 전체 출제)
   createdAt: Date;
   updatedAt: Date;
 }
@@ -53,5 +54,6 @@ export interface AnalyzeDrawingResponse {
 export interface CreateTopicRequest {
   name: string;
   words: string[]; // 최대 10개
+  questionCount?: number; // 출제할 문제 수 (없으면 전체 출제)
 }
 

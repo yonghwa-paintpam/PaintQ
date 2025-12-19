@@ -30,6 +30,7 @@ model Topic {
   id            String   @id @default(cuid())
   accessCodeId  String   // 접속 코드 연결
   name          String
+  questionCount Int?     // 출제할 문제 수 (null이면 전체 출제)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   

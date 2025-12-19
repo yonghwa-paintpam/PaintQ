@@ -19,6 +19,7 @@ export default function AdminPage() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newTopicName, setNewTopicName] = useState('');
   const [newWords, setNewWords] = useState<string[]>(Array(10).fill(''));
+  const [newQuestionCount, setNewQuestionCount] = useState<string>(''); // 빈 문자열이면 전체 출제
   const [editingTopic, setEditingTopic] = useState<TopicWithWords | null>(null);
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
@@ -108,6 +109,7 @@ export default function AdminPage() {
         body: JSON.stringify({
           name: newTopicName,
           words: validWords,
+          questionCount: newQuestionCount ? parseInt(newQuestionCount) : null,
         }),
       });
 
@@ -120,6 +122,7 @@ export default function AdminPage() {
       setShowCreateForm(false);
       setNewTopicName('');
       setNewWords(Array(10).fill(''));
+      setNewQuestionCount('');
       setToast({ message: '주제가 생성되었습니다!', type: 'success' });
     } catch (error) {
       console.error('주제 생성 오류:', error);
@@ -130,7 +133,7 @@ export default function AdminPage() {
     }
   };
 
-  const handleUpdateTopic = async (topicId: string, updatedName: string, updatedWords: string[]) => {
+  const handleUpdateTopic = async (topicId: string, updatedName: string, updatedWords: string[], updatedQuestionCount: number | null) => {
     const validWords = updatedWords.filter((word) => word.trim() !== '');
     if (validWords.length === 0) {
       setToast({ message: '최소 1개 이상의 문제 단어를 입력해주세요.', type: 'error' });
@@ -147,6 +150,7 @@ export default function AdminPage() {
         body: JSON.stringify({
           name: updatedName,
           words: validWords,
+          questionCount: updatedQuestionCount,
         }),
       });
 
@@ -281,6 +285,23 @@ export default function AdminPage() {
                       />
                     ))}
                   </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      출제 문제 수 (비워두면 전체 출제, 랜덤 순서)
+                    </label>
+                    <input
+                      type="number"
+                      value={newQuestionCount}
+                      onChange={(e) => setNewQuestionCount(e.target.value)}
+                      className="w-full max-w-xs px-4 py-2 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="예: 5"
+                      min="1"
+                      max="10"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      입력한 문제 중 지정된 개수만 랜덤하게 출제됩니다.
+                    </p>
+                  </div>
                   <button
                     onClick={handleCreateTopic}
                     disabled={loading}
@@ -304,7 +325,7 @@ export default function AdminPage() {
                     {editingTopic?.id === topic.id ? (
                       <EditTopicForm
                         topic={editingTopic}
-                        onSave={(name, words) => handleUpdateTopic(topic.id, name, words)}
+                        onSave={(name, words, questionCount) => handleUpdateTopic(topic.id, name, words, questionCount)}
                         onCancel={() => setEditingTopic(null)}
                         loading={loading}
                       />
@@ -314,7 +335,8 @@ export default function AdminPage() {
                           <div>
                             <h3 className="text-2xl font-bold text-gray-800 mb-2">{topic.name}</h3>
                             <p className="text-gray-600">
-                              문제 개수: {topic.words.length}개
+                              문제 개수: {topic.words.length}개 | 
+                              출제: {topic.questionCount ? `${topic.questionCount}개 랜덤` : '전체 랜덤'}
                             </p>
                           </div>
                           <div className="flex gap-2">
@@ -370,13 +392,16 @@ function EditTopicForm({
   loading,
 }: {
   topic: TopicWithWords;
-  onSave: (name: string, words: string[]) => void;
+  onSave: (name: string, words: string[], questionCount: number | null) => void;
   onCancel: () => void;
   loading: boolean;
 }) {
   const [name, setName] = useState(topic.name);
   const [words, setWords] = useState<string[]>(
     Array.from({ length: 10 }, (_, i) => topic.words[i]?.word || '')
+  );
+  const [questionCount, setQuestionCount] = useState<string>(
+    topic.questionCount ? String(topic.questionCount) : ''
   );
 
   return (
@@ -407,9 +432,26 @@ function EditTopicForm({
           />
         ))}
       </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          출제 문제 수 (비워두면 전체 출제, 랜덤 순서)
+        </label>
+        <input
+          type="number"
+          value={questionCount}
+          onChange={(e) => setQuestionCount(e.target.value)}
+          className="w-full max-w-xs px-4 py-2 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          placeholder="예: 5"
+          min="1"
+          max="10"
+        />
+        <p className="text-xs text-gray-500 mt-1">
+          입력한 문제 중 지정된 개수만 랜덤하게 출제됩니다.
+        </p>
+      </div>
       <div className="flex gap-2">
         <button
-          onClick={() => onSave(name, words)}
+          onClick={() => onSave(name, words, questionCount ? parseInt(questionCount) : null)}
           disabled={loading}
           className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
