@@ -32,6 +32,13 @@ interface Topic {
 interface Drawing {
   id: string;
   imageData: string;
+  wordId: string;
+}
+
+interface GroupedDrawings {
+  word: string;
+  wordId: string;
+  drawings: Drawing[];
 }
 
 function SuperAdminContent() {
@@ -42,7 +49,7 @@ function SuperAdminContent() {
   const [selectedCode, setSelectedCode] = useState<string | null>(null);
   const [topics, setTopics] = useState<Topic[]>([]);
   const [selectedTopic, setSelectedTopic] = useState<Topic | null>(null);
-  const [drawings, setDrawings] = useState<Drawing[]>([]);
+  const [groupedDrawings, setGroupedDrawings] = useState<GroupedDrawings[]>([]);
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -161,7 +168,7 @@ function SuperAdminContent() {
           setSelectedCode(null);
           setTopics([]);
           setSelectedTopic(null);
-          setDrawings([]);
+          setGroupedDrawings([]);
         }
       } else {
         alert('상태 변경에 실패했습니다.');
@@ -174,7 +181,7 @@ function SuperAdminContent() {
   const handleSelectCode = async (code: string) => {
     setSelectedCode(code);
     setSelectedTopic(null);
-    setDrawings([]);
+    setGroupedDrawings([]);
     setLoading(true);
     try {
       const response = await fetch(`/api/access-codes/${code}/topics`);
@@ -191,18 +198,22 @@ function SuperAdminContent() {
 
   const handleSelectTopic = async (topic: Topic) => {
     setSelectedTopic(topic);
-    setDrawings([]);
+    setGroupedDrawings([]);
     setLoading(true);
     try {
-      const allDrawings: Drawing[] = [];
-      for (const word of topic.words) {
+      const grouped: GroupedDrawings[] = [];
+      for (const word of topic.words.sort((a, b) => a.order - b.order)) {
         const response = await fetch(`/api/access-codes/${selectedCode}/drawings/${word.id}`);
         if (response.ok) {
           const data = await response.json();
-          allDrawings.push(...data);
+          grouped.push({
+            word: word.word,
+            wordId: word.id,
+            drawings: data,
+          });
         }
       }
-      setDrawings(allDrawings);
+      setGroupedDrawings(grouped);
     } catch {
       // 오류 무시
     } finally {
@@ -354,6 +365,11 @@ function SuperAdminContent() {
                           </p>
                           <p className="text-xs text-gray-600">
                             생성: {new Date(ac.createdAt).toLocaleDateString('ko-KR')}
+                            {ac.lastUsedAt && (
+                              <span className="ml-2">
+                                | 최근 접속: {new Date(ac.lastUsedAt).toLocaleDateString('ko-KR')}
+                              </span>
+                            )}
                           </p>
                         </div>
                         <div className="flex flex-col items-end gap-2">
@@ -423,7 +439,7 @@ function SuperAdminContent() {
             </div>
 
             {/* 그림 데이터 목록 */}
-            <div className="bg-white rounded-lg shadow-lg p-6">
+            <div className="bg-white rounded-lg shadow-lg p-6 overflow-y-auto max-h-[80vh]">
               <h2 className="text-xl font-bold mb-4 text-gray-800">
                 그림 데이터 {selectedTopic && `(${selectedTopic.name})`}
               </h2>
@@ -431,17 +447,33 @@ function SuperAdminContent() {
                 <p className="text-gray-600">주제를 선택해주세요.</p>
               ) : loading ? (
                 <LoadingSpinner />
-              ) : drawings.length === 0 ? (
+              ) : groupedDrawings.length === 0 ? (
                 <p className="text-gray-600">그림 데이터가 없습니다.</p>
               ) : (
-                <div className="grid grid-cols-2 gap-2">
-                  {drawings.map((drawing) => (
-                    <div key={drawing.id} className="border rounded-lg p-2">
-                      <img
-                        src={drawing.imageData}
-                        alt="그림"
-                        className="w-full h-24 object-contain rounded"
-                      />
+                <div className="space-y-4">
+                  {groupedDrawings.map((group) => (
+                    <div key={group.wordId} className="border rounded-lg p-3">
+                      <h3 className="font-semibold text-gray-800 mb-2 flex items-center gap-2">
+                        📝 {group.word}
+                        <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded">
+                          {group.drawings.length}개
+                        </span>
+                      </h3>
+                      {group.drawings.length === 0 ? (
+                        <p className="text-sm text-gray-500">그림 없음</p>
+                      ) : (
+                        <div className="grid grid-cols-3 gap-2">
+                          {group.drawings.map((drawing) => (
+                            <div key={drawing.id} className="border rounded p-1 bg-gray-50">
+                              <img
+                                src={drawing.imageData}
+                                alt={group.word}
+                                className="w-full h-16 object-contain rounded"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
