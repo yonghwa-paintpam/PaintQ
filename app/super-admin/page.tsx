@@ -27,6 +27,9 @@ interface Topic {
     word: string;
     order: number;
   }>;
+  _count?: {
+    games: number;
+  };
 }
 
 interface Drawing {
@@ -424,7 +427,7 @@ function SuperAdminContent() {
                     >
                       <p className="font-semibold text-gray-900">{topic.name}</p>
                       <p className="text-sm text-gray-700 font-medium">
-                        문제: {topic.words.length}개
+                        문제: {topic.words.length}개 | 게임: {topic._count?.games || 0}회
                       </p>
                       <p className="text-xs text-gray-600 mt-1">
                         {topic.words

@@ -63,6 +63,11 @@ export async function GET(
             order: 'asc',
           },
         },
+        _count: {
+          select: {
+            games: true,
+          },
+        },
       },
       orderBy: {
         createdAt: 'desc',
