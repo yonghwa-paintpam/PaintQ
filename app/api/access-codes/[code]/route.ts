@@ -72,6 +72,12 @@ export async function GET(
       );
     }
 
+    // 최근 접속일 업데이트 (비동기로 처리, 응답 지연 없음)
+    prisma.accessCode.update({
+      where: { code },
+      data: { lastUsedAt: new Date() },
+    }).catch(() => {});
+
     return NextResponse.json(accessCode);
   } catch (error: any) {
     console.error('접속 코드 조회 오류:', error);
