@@ -94,7 +94,7 @@ function initializeGemini() {
 
   genAI = new GoogleGenerativeAI(apiKey);
   model = genAI.getGenerativeModel({
-    model: 'gemini-2.0-flash',
+    model: 'gemini-2.5-flash-lite',
   });
 
   return model;
@@ -199,5 +199,99 @@ export async function analyzeDrawing(
   } catch (error) {
     console.error('Gemini API 오류:', error);
     throw new Error(`그림 분석 중 오류가 발생했습니다: ${error instanceof Error ? error.message : '알 수 없는 오류'}`);
+  }
+}
+
+/**
+ * 창의력 리포트 분석 결과 타입
+ */
+export interface CreativityReport {
+  score: number;
+  style_title: string;
+  style_desc: string;
+  strength: string;
+  tip: string;
+  comment: string;
+}
+
+/**
+ * 여러 그림을 분석하여 창의력 리포트를 생성
+ * @param imagesBase64 Base64 인코딩된 이미지 데이터 배열
+ * @returns 창의력 리포트
+ */
+export async function analyzeCreativity(imagesBase64: string[]): Promise<CreativityReport> {
+  try {
+    const modelInstance = initializeGemini();
+
+    const prompt = `당신은 아이들의 그림을 분석하는 창의력 분석 전문가입니다.
+
+다음 그림들은 한 사용자가 "20초 제한 시간" 내에 빠르게 그린 것입니다.
+(색상/선 굵기 도구 없이 검은색 펜 하나로만 그렸습니다)
+
+그림들을 종합 분석하여 재미있고 긍정적인 "창의력 리포트"를 작성해주세요.
+
+분석 요소:
+- 표현 스타일 (과감함/신중함, 심플/디테일)
+- 선의 특성 (부드러운 곡선/각진 직선)
+- 화면 활용 (크게/작게 그리는지)
+- 전체적인 느낌과 개성
+
+반드시 아래 JSON 형식으로만 응답하세요:
+{
+  "score": 85,
+  "style_title": "번개같은 스케처",
+  "style_desc": "핵심을 빠르게 포착하는 표현력",
+  "strength": "자신감 있는 선과 과감한 구도",
+  "tip": "디테일을 조금 더 추가하면 더 멋진 그림이 될 거예요",
+  "comment": "자신감 넘치는 아티스트! 빠르고 정확한 표현력이 돋보여요 🌟"
+}
+
+주의사항:
+- 반드시 긍정적이고 격려하는 톤
+- 점수는 70~95 사이로 (너무 낮거나 높지 않게)
+- 이모지 적극 활용
+- JSON만 응답 (다른 텍스트 없이)`;
+
+    // 이미지들을 컨텐츠로 변환
+    const imageParts = imagesBase64.map((imageBase64) => {
+      const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
+      return {
+        inlineData: {
+          data: base64Data,
+          mimeType: 'image/png',
+        },
+      };
+    });
+
+    const result = await modelInstance.generateContent([prompt, ...imageParts]);
+    const response = await result.response;
+    const responseText = response.text();
+
+    // JSON 파싱
+    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]);
+      return {
+        score: parsed.score || 80,
+        style_title: parsed.style_title || '창의적인 아티스트',
+        style_desc: parsed.style_desc || '자신만의 스타일로 표현해요',
+        strength: parsed.strength || '독특한 표현력',
+        tip: parsed.tip || '계속 그려보세요!',
+        comment: parsed.comment || '멋진 그림이에요! 🌟',
+      };
+    }
+
+    // 파싱 실패 시 기본값
+    return {
+      score: 80,
+      style_title: '창의적인 아티스트',
+      style_desc: '자신만의 스타일로 표현해요',
+      strength: '독특한 표현력',
+      tip: '계속 그려보세요!',
+      comment: '멋진 그림이에요! 🌟',
+    };
+  } catch (error) {
+    console.error('창의력 분석 오류:', error);
+    throw new Error(`창의력 분석 중 오류가 발생했습니다: ${error instanceof Error ? error.message : '알 수 없는 오류'}`);
   }
 }
