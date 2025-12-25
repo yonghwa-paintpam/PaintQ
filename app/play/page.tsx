@@ -1046,6 +1046,16 @@ function GamePage({
   );
 }
 
+// 창의력 리포트 타입
+interface CreativityReport {
+  score: number;
+  style_title: string;
+  style_desc: string;
+  strength: string;
+  tip: string;
+  comment: string;
+}
+
 // 결과 화면
 function ResultPage({
   topic,
@@ -1058,6 +1068,50 @@ function ResultPage({
 }) {
   const [otherDrawingsMap, setOtherDrawingsMap] = useState<{ [wordId: string]: any[] }>({});
   const [loadingDrawings, setLoadingDrawings] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [creativityReport, setCreativityReport] = useState<CreativityReport | null>(null);
+  const [loadingReport, setLoadingReport] = useState(false);
+  const [reportError, setReportError] = useState<string | null>(null);
+
+  // 창의력 리포트 분석
+  const handleAnalyzeCreativity = async () => {
+    setLoadingReport(true);
+    setReportError(null);
+    setShowReportModal(true);
+
+    try {
+      // 내 그림들만 추출
+      const myDrawings = results
+        .filter((r) => r.drawing?.imageData)
+        .map((r) => r.drawing.imageData);
+
+      if (myDrawings.length === 0) {
+        setReportError('분석할 그림이 없습니다.');
+        setLoadingReport(false);
+        return;
+      }
+
+      const response = await fetch('/api/analyze-creativity', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ images: myDrawings }),
+      });
+
+      if (!response.ok) {
+        throw new Error('분석 요청 실패');
+      }
+
+      const report = await response.json();
+      setCreativityReport(report);
+    } catch (error) {
+      console.error('창의력 분석 오류:', error);
+      setReportError('분석 중 오류가 발생했습니다. 다시 시도해주세요.');
+    } finally {
+      setLoadingReport(false);
+    }
+  };
 
   useEffect(() => {
     // 모든 문제에 대한 다른 플레이어 그림 불러오기
@@ -1197,7 +1251,14 @@ function ResultPage({
         </div>
 
         {/* 하단 버튼 */}
-        <div className="text-center mt-6 sm:mt-8">
+        <div className="text-center mt-6 sm:mt-8 space-y-4">
+          <button
+            onClick={handleAnalyzeCreativity}
+            disabled={loadingReport}
+            className="px-6 sm:px-8 py-3 sm:py-4 bg-purple-600 text-white rounded-lg text-base sm:text-lg font-semibold hover:bg-purple-700 transition-colors shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed mr-4"
+          >
+            🎨 창의력 리포트 보기
+          </button>
           <button
             onClick={onBack}
             className="px-6 sm:px-8 py-3 sm:py-4 bg-blue-600 text-white rounded-lg text-base sm:text-lg font-semibold hover:bg-blue-700 transition-colors shadow-md hover:shadow-lg"
@@ -1205,6 +1266,78 @@ function ResultPage({
             다른 주제 선택
           </button>
         </div>
+
+        {/* 창의력 리포트 모달 */}
+        {showReportModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+              {loadingReport ? (
+                <div className="p-8 text-center">
+                  <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-purple-600 mx-auto mb-4"></div>
+                  <p className="text-lg text-gray-600">AI가 그림을 분석하고 있어요...</p>
+                  <p className="text-sm text-gray-500 mt-2">잠시만 기다려주세요 🎨</p>
+                </div>
+              ) : reportError ? (
+                <div className="p-8 text-center">
+                  <p className="text-6xl mb-4">😢</p>
+                  <p className="text-lg text-red-600 mb-4">{reportError}</p>
+                  <button
+                    onClick={() => setShowReportModal(false)}
+                    className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+                  >
+                    닫기
+                  </button>
+                </div>
+              ) : creativityReport ? (
+                <div className="p-6">
+                  {/* 헤더 */}
+                  <div className="text-center mb-6">
+                    <h2 className="text-2xl font-bold text-gray-800 mb-2">🎨 창의력 리포트</h2>
+                    <div className="inline-block bg-gradient-to-r from-purple-500 to-pink-500 text-white px-6 py-3 rounded-full">
+                      <span className="text-3xl font-bold">{creativityReport.score}</span>
+                      <span className="text-lg">점</span>
+                    </div>
+                  </div>
+
+                  {/* 스타일 */}
+                  <div className="bg-purple-50 rounded-xl p-4 mb-4">
+                    <h3 className="text-lg font-bold text-purple-800 mb-1">
+                      ✨ {creativityReport.style_title}
+                    </h3>
+                    <p className="text-gray-700">{creativityReport.style_desc}</p>
+                  </div>
+
+                  {/* 강점 */}
+                  <div className="bg-green-50 rounded-xl p-4 mb-4">
+                    <h3 className="text-lg font-bold text-green-800 mb-1">💪 강점</h3>
+                    <p className="text-gray-700">{creativityReport.strength}</p>
+                  </div>
+
+                  {/* 팁 */}
+                  <div className="bg-yellow-50 rounded-xl p-4 mb-4">
+                    <h3 className="text-lg font-bold text-yellow-800 mb-1">💡 팁</h3>
+                    <p className="text-gray-700">{creativityReport.tip}</p>
+                  </div>
+
+                  {/* 코멘트 */}
+                  <div className="bg-blue-50 rounded-xl p-4 mb-6">
+                    <p className="text-lg text-gray-800 text-center font-medium">
+                      {creativityReport.comment}
+                    </p>
+                  </div>
+
+                  {/* 닫기 버튼 */}
+                  <button
+                    onClick={() => setShowReportModal(false)}
+                    className="w-full px-6 py-3 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 transition-colors"
+                  >
+                    닫기
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
