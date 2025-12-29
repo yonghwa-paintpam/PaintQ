@@ -1277,6 +1277,7 @@ function ResultPage({
 
         {/* 하단 버튼 */}
         <div className="text-center mt-6 sm:mt-8 space-y-4">
+          {/* 창의력 리포트 버튼 - 향후 배포 예정 (현재 숨김)
           <button
             onClick={handleAnalyzeCreativity}
             disabled={loadingReport}
@@ -1284,6 +1285,7 @@ function ResultPage({
           >
             🎨 창의력 리포트 보기
           </button>
+          */}
           <button
             onClick={onBack}
             className="px-6 sm:px-8 py-3 sm:py-4 bg-blue-600 text-white rounded-lg text-base sm:text-lg font-semibold hover:bg-blue-700 transition-colors shadow-md hover:shadow-lg"
