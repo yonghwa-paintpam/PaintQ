@@ -1056,6 +1056,12 @@ interface CreativityReport {
   comment: string;
 }
 
+// 다른 플레이어 그림 데이터 타입
+interface OtherDrawingsData {
+  bestDrawings: any[];
+  totalParticipants: number;
+}
+
 // 결과 화면
 function ResultPage({
   topic,
@@ -1066,7 +1072,7 @@ function ResultPage({
   results: any[];
   onBack: () => void;
 }) {
-  const [otherDrawingsMap, setOtherDrawingsMap] = useState<{ [wordId: string]: any[] }>({});
+  const [otherDrawingsMap, setOtherDrawingsMap] = useState<{ [wordId: string]: OtherDrawingsData }>({});
   const [loadingDrawings, setLoadingDrawings] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [creativityReport, setCreativityReport] = useState<CreativityReport | null>(null);
@@ -1114,10 +1120,10 @@ function ResultPage({
   };
 
   useEffect(() => {
-    // 모든 문제에 대한 다른 플레이어 그림 불러오기
+    // 모든 문제에 대한 베스트 그림 + 참여자 수 불러오기
     const fetchAllDrawings = async () => {
       setLoadingDrawings(true);
-      const drawingsMap: { [wordId: string]: any[] } = {};
+      const drawingsMap: { [wordId: string]: OtherDrawingsData } = {};
       
       try {
         await Promise.all(
@@ -1125,9 +1131,13 @@ function ResultPage({
             try {
               const response = await fetch(`/api/drawings/${result.wordId}`);
               const data = await response.json();
-              drawingsMap[result.wordId] = data || [];
+              // 새로운 API 응답 형식: { bestDrawings, totalParticipants }
+              drawingsMap[result.wordId] = {
+                bestDrawings: data.bestDrawings || [],
+                totalParticipants: data.totalParticipants || 0,
+              };
             } catch {
-              drawingsMap[result.wordId] = [];
+              drawingsMap[result.wordId] = { bestDrawings: [], totalParticipants: 0 };
             }
           })
         );
@@ -1173,10 +1183,17 @@ function ResultPage({
             const word = topic.words.find((w) => w.id === result.wordId);
             if (!word) return null;
             
-            const otherDrawings = otherDrawingsMap[result.wordId] || [];
-            const filteredOtherDrawings = otherDrawings.filter(
+            // 새로운 API 응답 형식 사용
+            const drawingsData = otherDrawingsMap[result.wordId] || { bestDrawings: [], totalParticipants: 0 };
+            const { bestDrawings, totalParticipants } = drawingsData;
+            
+            // 내 그림 제외
+            const filteredBestDrawings = bestDrawings.filter(
               (d) => d.id !== result.drawing?.id
             );
+            
+            // 내 그림을 제외한 실제 참여자 수
+            const otherParticipants = Math.max(0, totalParticipants - 1);
 
             return (
               <div key={result.id} className="bg-white rounded-lg shadow-lg p-4 sm:p-6 flex flex-col">
@@ -1204,45 +1221,53 @@ function ResultPage({
                   </div>
                 </div>
 
-                {/* 다른 플레이어들의 그림 */}
+                {/* 다른 플레이어들의 그림 - 베스트 4개 */}
                 <div className="mt-auto">
-                  <h3 className="text-sm font-semibold mb-2 text-gray-700 text-center">
-                    다른 플레이어 ({filteredOtherDrawings.length}개)
-                  </h3>
                   {loadingDrawings ? (
                     <div className="text-center py-2 text-gray-500 text-xs">
                       로딩 중...
                     </div>
-                  ) : filteredOtherDrawings.length === 0 ? (
-                    <div className="text-center py-2 text-gray-500 text-xs">
-                      아직 다른 플레이어의 그림이 없습니다.
-                    </div>
+                  ) : filteredBestDrawings.length === 0 ? (
+                    // 0개: 아무것도 표시 안 함
+                    null
                   ) : (
-                    <div className="grid grid-cols-2 gap-2">
-                      {filteredOtherDrawings.slice(0, 4).map((drawing) => (
-                        <div
-                          key={drawing.id}
-                          className="border rounded-lg p-1 bg-gray-50 flex flex-col items-center text-center"
-                        >
-                          <img
-                            src={drawing.imageData}
-                            alt="다른 플레이어 그림"
-                            className="w-full h-16 sm:h-20 object-contain rounded mb-1"
-                          />
-                          <p className="text-xs text-gray-600 truncate w-full">
-                            {drawing.aiGuess || '없음'}
-                          </p>
-                          <p className={`text-xs font-bold ${drawing.isCorrect ? 'text-green-600' : 'text-red-600'}`}>
-                            {drawing.isCorrect ? '✅' : '❌'}
-                          </p>
-                        </div>
-                      ))}
-                      {filteredOtherDrawings.length > 4 && (
-                        <div className="border rounded-lg p-1 bg-gray-50 flex items-center justify-center text-xs text-gray-500">
-                          +{filteredOtherDrawings.length - 4}개
-                        </div>
+                    <>
+                      {/* 4개 이상일 때만 타이틀 표시 */}
+                      {filteredBestDrawings.length >= 4 && (
+                        <h3 className="text-sm font-semibold mb-2 text-gray-700 text-center">
+                          ✨ 가장 인상적인 그림들
+                        </h3>
                       )}
-                    </div>
+                      
+                      {/* 베스트 그림들 (최대 4개) */}
+                      <div className="grid grid-cols-2 gap-2">
+                        {filteredBestDrawings.slice(0, 4).map((drawing) => (
+                          <div
+                            key={drawing.id}
+                            className="border rounded-lg p-1 bg-gray-50 flex flex-col items-center text-center"
+                          >
+                            <img
+                              src={drawing.imageData}
+                              alt="다른 플레이어 그림"
+                              className="w-full h-16 sm:h-20 object-contain rounded mb-1"
+                            />
+                            <p className="text-xs text-gray-600 truncate w-full">
+                              {drawing.aiGuess || '없음'}
+                            </p>
+                            <p className={`text-xs font-bold ${drawing.isCorrect ? 'text-green-600' : 'text-red-600'}`}>
+                              {drawing.isCorrect ? '✅' : '❌'}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                      
+                      {/* 참여자 수 표시 */}
+                      {otherParticipants > 0 && (
+                        <p className="text-xs text-gray-500 text-center mt-2">
+                          🎨 지금까지 {otherParticipants}명이 참여했어요!
+                        </p>
+                      )}
+                    </>
                   )}
                 </div>
               </div>

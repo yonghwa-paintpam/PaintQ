@@ -1,34 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 
-// Mock 단어 데이터
-const MOCK_WORDS: Record<string, string> = {
-  'w1': '고양이',
-  'w2': '강아지',
-  'w3': '사자',
-  'w4': '코끼리',
-  'w5': '기린',
-  'w6': '사과',
-  'w7': '바나나',
-  'w8': '딸기',
-  'w9': '포도',
-  'w10': '자동차',
-  'w11': '비행기',
-  'w12': '기차',
-  'w13': '배',
-  'w14': '자전거',
-};
-
-// 빈 Canvas 이미지 (Base64)
-const EMPTY_CANVAS_IMAGE = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
-
-// GET: 특정 단어에 대한 모든 그림 조회 (같은 주제의 다른 플레이어 그림들)
+// GET: 특정 단어에 대한 베스트 그림 4개 + 전체 참여자 수 조회
 export async function GET(
   request: NextRequest,
   { params }: { params: { wordId: string } }
 ) {
   try {
-    const drawings = await prisma.drawing.findMany({
+    // 1. 전체 참여자 수 조회 (이미지 데이터 없이 count만)
+    const totalParticipants = await prisma.drawing.count({
+      where: {
+        game: {
+          wordId: params.wordId,
+        },
+      },
+    });
+
+    // 2. 베스트 그림 4개 조회 (impressionScore 높은 순, 없으면 정답 우선 + 최신순)
+    const bestDrawings = await prisma.drawing.findMany({
       where: {
         game: {
           wordId: params.wordId,
@@ -42,22 +31,23 @@ export async function GET(
           },
         },
       },
-      orderBy: {
-        createdAt: 'desc',
-      },
+      orderBy: [
+        { impressionScore: 'desc' },  // 인상 점수 높은 순
+        { isCorrect: 'desc' },         // 정답 우선
+        { createdAt: 'desc' },         // 최신순
+      ],
+      take: 4,  // 최대 4개만
     });
 
-    // 데이터베이스에 데이터가 있으면 반환
-    if (drawings.length > 0) {
-      return NextResponse.json(drawings);
-    }
-
-    // 데이터베이스가 비어있으면 빈 배열 반환 (Mock 데이터 없음)
-    return NextResponse.json([]);
+    // 응답 형식 변경: bestDrawings + totalParticipants
+    return NextResponse.json({
+      bestDrawings,
+      totalParticipants,
+    });
   } catch (error) {
     console.error('그림 조회 오류:', error);
     
-    // 데이터베이스 연결 오류인 경우 빈 배열 반환
+    // 데이터베이스 연결 오류인 경우 빈 결과 반환
     if (error instanceof Error) {
       const errorMessage = error.message.toLowerCase();
       if (
@@ -68,8 +58,10 @@ export async function GET(
         errorMessage.includes('env') ||
         errorMessage.includes('invalid url')
       ) {
-        // 데이터베이스가 설정되지 않은 경우 빈 배열 반환
-        return NextResponse.json([]);
+        return NextResponse.json({
+          bestDrawings: [],
+          totalParticipants: 0,
+        });
       }
     }
     

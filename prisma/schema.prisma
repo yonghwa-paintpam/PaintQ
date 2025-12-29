@@ -75,14 +75,15 @@ model Game {
 
 // 그림 데이터 (Drawing)
 model Drawing {
-  id        String   @id @default(cuid())
-  gameId    String   @unique
-  imageData String   // Base64 이미지 데이터 또는 Storage URL
-  aiGuess   String?  // AI가 추측한 단어
-  isCorrect Boolean? // 정답 여부
-  createdAt DateTime @default(now())
+  id              String   @id @default(cuid())
+  gameId          String   @unique
+  imageData       String   // Base64 이미지 데이터 또는 Storage URL
+  aiGuess         String?  // AI가 추측한 단어
+  isCorrect       Boolean? // 정답 여부
+  impressionScore Int?     // 인상적인 그림 점수 (0-100, 창의성/독특성 기반)
+  createdAt       DateTime @default(now())
   
-  game      Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  game            Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
   
   @@map("drawings")
 }

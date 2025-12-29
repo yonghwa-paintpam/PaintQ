@@ -104,25 +104,39 @@ export async function POST(
     }
 
     // AI 분석 (이미 분석된 결과가 있으면 사용, 없으면 새로 분석)
+    // 저장 시에는 항상 impressionScore를 포함한 분석 수행
     let finalAiGuess: string;
     let finalIsCorrect: boolean;
+    let finalImpressionScore: number | undefined;
+
+    const base64Data = imageData.includes(',') ? imageData.split(',')[1] : imageData;
 
     if (aiGuess !== undefined && isCorrect !== undefined) {
-      // 이미 분석된 결과가 있으면 사용
+      // 이미 분석된 결과가 있으면 aiGuess, isCorrect는 그대로 사용
       finalAiGuess = aiGuess;
       finalIsCorrect = isCorrect;
-    } else {
-      // AI 분석 수행
+      
+      // impressionScore만 별도로 계산 (저장 시에만)
       try {
-        const base64Data = imageData.includes(',') ? imageData.split(',')[1] : imageData;
-        const analysisResult = await analyzeDrawing(base64Data, word.word);
+        const scoreResult = await analyzeDrawing(base64Data, word.word, true);
+        finalImpressionScore = scoreResult.impressionScore;
+      } catch (scoreError) {
+        console.error('인상 점수 분석 오류:', scoreError);
+        finalImpressionScore = undefined;
+      }
+    } else {
+      // AI 분석 수행 (impressionScore 포함)
+      try {
+        const analysisResult = await analyzeDrawing(base64Data, word.word, true);
         finalAiGuess = analysisResult.aiGuess;
         finalIsCorrect = analysisResult.isCorrect;
+        finalImpressionScore = analysisResult.impressionScore;
       } catch (aiError) {
         console.error('AI 분석 오류:', aiError);
-        // AI 분석 실패 시 오답으로 처리 (Mock 제거)
+        // AI 분석 실패 시 오답으로 처리
         finalAiGuess = 'AI 분석 실패';
         finalIsCorrect = false;
+        finalImpressionScore = undefined;
       }
     }
 
@@ -138,6 +152,7 @@ export async function POST(
               imageData: imageData,
               aiGuess: finalAiGuess,
               isCorrect: finalIsCorrect,
+              impressionScore: finalImpressionScore,
             },
           },
         },

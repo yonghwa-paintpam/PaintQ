@@ -104,16 +104,44 @@ function initializeGemini() {
  * 그림을 분석하여 AI 추측과 정답 여부를 반환
  * @param imageBase64 Base64 인코딩된 이미지 데이터
  * @param correctAnswer 정답 단어
- * @returns AI 추측 단어와 정답 여부
+ * @param includeImpressionScore 인상적인 그림 점수도 함께 반환할지 여부 (기본: false)
+ * @returns AI 추측 단어와 정답 여부, 선택적으로 인상 점수
  */
 export async function analyzeDrawing(
   imageBase64: string,
-  correctAnswer: string
-): Promise<{ aiGuess: string; isCorrect: boolean }> {
+  correctAnswer: string,
+  includeImpressionScore: boolean = false
+): Promise<{ aiGuess: string; isCorrect: boolean; impressionScore?: number }> {
   try {
     const modelInstance = initializeGemini();
     
-    const prompt = `
+    // includeImpressionScore가 true일 때만 점수 요청 추가
+    const prompt = includeImpressionScore ? `
+이 그림이 무엇인지 맞춰보고, 그림의 "인상적인 정도"를 평가해주세요.
+
+지침:
+1. 그림을 보고 무엇을 그린 것인지 추측해주세요.
+2. 손으로 그린 간단한 그림이므로, 대략적인 형태를 보고 추측하면 됩니다.
+3. 한 단어로만 답변해주세요. (예: 고양이, 사과, 자동차, 별, 해 등)
+4. 그림의 인상적인 정도를 0-100점으로 평가해주세요. (20초 제한 시간 고려)
+
+인상 점수 평가 기준:
+- 핵심 특징을 잘 표현했는가? (40%)
+- 독특하거나 창의적인 요소가 있는가? (30%)
+- 한눈에 무엇인지 알아볼 수 있는가? (30%)
+
+중요:
+- 그림이 거의 비어있거나, 점/선 몇 개만 있거나, 낙서 수준이라면 반드시 "알 수 없음"으로 답하고 점수는 0점으로 하세요.
+- 의미 있는 형태가 보이지 않으면 "알 수 없음"으로 답하세요.
+- 추측에 확신이 없으면 "알 수 없음"으로 답하세요.
+- 빈 흰색 캔버스에 아무것도 없으면 "알 수 없음"으로 답하세요.
+
+응답 형식:
+{
+  "aiGuess": "추측한 단어",
+  "impressionScore": 75
+}
+` : `
 이 그림이 무엇인지 맞춰보세요.
 
 지침:
@@ -151,12 +179,16 @@ export async function analyzeDrawing(
 
     // JSON 파싱 시도
     let aiGuess: string;
+    let impressionScore: number | undefined;
     try {
       // 응답에서 JSON 부분만 추출
       const jsonMatch = responseText.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
         aiGuess = parsed.aiGuess || '알 수 없음';
+        if (includeImpressionScore && typeof parsed.impressionScore === 'number') {
+          impressionScore = Math.max(0, Math.min(100, parsed.impressionScore));
+        }
       } else {
         // JSON이 없으면 첫 번째 줄을 추측으로 사용
         aiGuess = responseText.trim().split('\n')[0] || '알 수 없음';
@@ -170,11 +202,13 @@ export async function analyzeDrawing(
       
       if (uncertainKeywords.some(keyword => lowerGuess.includes(keyword))) {
         aiGuess = '알 수 없음';
+        impressionScore = 0;
       }
       
       // 너무 짧거나 의미 없는 답변만 필터링
       if (aiGuess.length < 1 || aiGuess === '?' || aiGuess === '??') {
         aiGuess = '알 수 없음';
+        impressionScore = 0;
       }
     } catch (parseError) {
       // JSON 파싱 실패 시 텍스트에서 추측 추출
@@ -186,6 +220,7 @@ export async function analyzeDrawing(
       return {
         aiGuess: '알 수 없음',
         isCorrect: false,
+        impressionScore: includeImpressionScore ? 0 : undefined,
       };
     }
 
@@ -195,6 +230,7 @@ export async function analyzeDrawing(
     return {
       aiGuess,
       isCorrect,
+      ...(includeImpressionScore && { impressionScore: impressionScore ?? 50 }),
     };
   } catch (error) {
     console.error('Gemini API 오류:', error);
