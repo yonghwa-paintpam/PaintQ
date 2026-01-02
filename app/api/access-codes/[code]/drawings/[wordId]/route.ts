@@ -50,12 +50,23 @@ export async function GET(
 
     const totalCount = drawings.length;
 
-    // impressionScore 기준 정렬 (높은 순)
+    // 사용자 화면과 동일한 정렬: impressionScore → isCorrect → createdAt
     if (bestParam) {
       drawings = drawings.sort((a, b) => {
+        // 1. impressionScore 높은 순
         const scoreA = a?.impressionScore ?? 0;
         const scoreB = b?.impressionScore ?? 0;
-        return scoreB - scoreA;
+        if (scoreB !== scoreA) return scoreB - scoreA;
+        
+        // 2. 정답 우선
+        const correctA = a?.isCorrect ? 1 : 0;
+        const correctB = b?.isCorrect ? 1 : 0;
+        if (correctB !== correctA) return correctB - correctA;
+        
+        // 3. 최신순
+        const dateA = new Date(a?.createdAt || 0).getTime();
+        const dateB = new Date(b?.createdAt || 0).getTime();
+        return dateB - dateA;
       });
     }
 
