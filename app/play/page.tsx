@@ -989,7 +989,13 @@ function GamePage({
               {showResult.isCorrect ? '✅ 정답!' : '❌ 오답'}
             </p>
             <p className="text-base sm:text-lg text-gray-700">
-              AI 추측: {showResult.aiGuess}
+              {showResult.isCorrect ? (
+                // 정답일 때: 실제 정답 단어로 표시 (AI 추측이 유사 단어여도 정답으로 보이게)
+                <>AI 추측: {currentWord.word}</>
+              ) : (
+                // 오답일 때: AI 추측과 정답을 함께 표시
+                <>AI 추측: {showResult.aiGuess} → 정답: {currentWord.word}</>
+              )}
             </p>
             <p className="text-sm text-gray-600 mt-2">
               다음 문제로 이동합니다...
