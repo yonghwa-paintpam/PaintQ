@@ -32,6 +32,7 @@ function compareAnswers(aiGuess: string, correctAnswer: string): boolean {
   
   // 3. 명시적으로 정의된 유사 단어 매핑만 인정 (엄격하게)
   const similarWords: Record<string, string[]> = {
+    // 일반 단어
     '자동차': ['자동차', '차', 'car'],
     '고양이': ['고양이', '냥이', 'cat'],
     '강아지': ['강아지', '개', '멍멍이', 'dog', 'puppy'],
@@ -41,7 +42,7 @@ function compareAnswers(aiGuess: string, correctAnswer: string): boolean {
     '기차': ['기차', '열차', 'train'],
     '자전거': ['자전거', 'bicycle', 'bike'],
     '배': ['배', '선박', 'ship', 'boat'],
-    '별': ['별', 'star', '스타'],
+    '별': ['별', 'star', '스타', '오각별'],
     '해': ['해', '태양', 'sun'],
     '달': ['달', 'moon'],
     '구름': ['구름', 'cloud'],
@@ -50,6 +51,44 @@ function compareAnswers(aiGuess: string, correctAnswer: string): boolean {
     '집': ['집', 'house', '하우스'],
     '사람': ['사람', 'person', 'human'],
     'LG': ['LG', 'lg', '엘지', 'L.G'],
+    
+    // === 도형 관련 ===
+    '동그라미': ['동그라미', '원', '원형', 'circle', 'O', '○'],
+    '세모': ['세모', '삼각형', 'triangle', '△'],
+    '삼각형': ['삼각형', '세모', 'triangle', '△'],
+    '사각형': ['사각형', '네모', '정사각형', '직사각형', 'square', 'rectangle', '□'],
+    '네모': ['네모', '사각형', '정사각형', 'square', '□'],
+    '마름모': ['마름모', '다이아몬드', 'diamond', 'rhombus', '◇'],
+    '오각형': ['오각형', '펜타곤', 'pentagon', '오각별'],
+    '육각형': ['육각형', '헥사곤', 'hexagon', '벌집'],
+    '직각삼각형': ['직각삼각형', '삼각형', 'right triangle', '세모'],
+    '이등변삼각형': ['이등변삼각형', '삼각형', 'isosceles triangle', '세모'],
+    '평행선': ['평행선', '평행', 'parallel lines', '두 줄', '직선'],
+    
+    // === 3D 도형 ===
+    '정육면체': ['정육면체', '큐브', '상자', 'cube', 'box', '육면체', '주사위'],
+    '원기둥': ['원기둥', '실린더', 'cylinder', '기둥', '원통'],
+    '원뿔': ['원뿔', '콘', 'cone', '뿔'],
+    '정사면체': ['정사면체', '피라미드', 'tetrahedron', '사면체', '삼각뿔'],
+    '사각뿔': ['사각뿔', '피라미드', 'pyramid', '뿔'],
+    
+    // === 그래프 관련 ===
+    '막대그래프': ['막대그래프', '바차트', 'bar chart', 'bar graph', '막대 차트', '막대', '그래프'],
+    '원그래프': ['원그래프', '파이차트', 'pie chart', 'pie graph', '파이 그래프', '원형 그래프'],
+    '꺾은선그래프': ['꺾은선그래프', '선그래프', 'line chart', 'line graph', '라인 그래프', '선 그래프', '그래프'],
+    '방사형그래프': ['방사형그래프', '레이더차트', 'radar chart', '거미줄 그래프', '방사형 차트', '거미줄'],
+    
+    // === 수학 도구 ===
+    '자': ['자', '눈금자', 'ruler', '직자'],
+    '줄자': ['줄자', '측정 테이프', 'tape measure', '메저'],
+    '콤파스': ['콤파스', '컴퍼스', 'compass', '원 그리는 도구'],
+    '삼각자': ['삼각자', '삼각 자', 'set square', 'triangle ruler'],
+    '각도기': ['각도기', '분도기', 'protractor', '반원 자'],
+    '연필': ['연필', 'pencil', '펜슬'],
+    '지우개': ['지우개', 'eraser', '지우개'],
+    '계산기': ['계산기', 'calculator', '전자 계산기'],
+    '주판': ['주판', '산판', 'abacus', '셈판'],
+    '저울': ['저울', '천칭', 'scale', 'balance', '무게 저울'],
   };
   
   // 정답의 유사 단어 목록 확인
@@ -105,24 +144,31 @@ function initializeGemini() {
  * @param imageBase64 Base64 인코딩된 이미지 데이터
  * @param correctAnswer 정답 단어
  * @param includeImpressionScore 인상적인 그림 점수도 함께 반환할지 여부 (기본: false)
+ * @param topicHint 주제 힌트 (예: "도형", "수학도구", "동물" 등) - AI 추측 정확도 향상에 사용
  * @returns AI 추측 단어와 정답 여부, 선택적으로 인상 점수
  */
 export async function analyzeDrawing(
   imageBase64: string,
   correctAnswer: string,
-  includeImpressionScore: boolean = false
+  includeImpressionScore: boolean = false,
+  topicHint?: string
 ): Promise<{ aiGuess: string; isCorrect: boolean; impressionScore?: number }> {
   try {
     const modelInstance = initializeGemini();
     
+    // 주제 힌트가 있으면 컨텍스트 문구 추가
+    const topicContext = topicHint 
+      ? `\n힌트: 이 그림은 "${topicHint}" 관련 그림입니다. 해당 주제에 맞는 용어로 답변해주세요.\n` 
+      : '';
+    
     // includeImpressionScore가 true일 때만 점수 요청 추가
     const prompt = includeImpressionScore ? `
 이 그림이 무엇인지 맞춰보고, 그림의 "인상적인 정도"를 평가해주세요.
-
+${topicContext}
 지침:
 1. 그림을 보고 무엇을 그린 것인지 추측해주세요.
 2. 손으로 그린 간단한 그림이므로, 대략적인 형태를 보고 추측하면 됩니다.
-3. 한 단어로만 답변해주세요. (예: 고양이, 사과, 자동차, 별, 해 등)
+3. 한 단어로만 답변해주세요. (예: 고양이, 사과, 자동차, 삼각형, 막대그래프 등)
 4. 그림의 인상적인 정도를 0-100점으로 평가해주세요. (20초 제한 시간 고려)
 
 인상 점수 평가 기준:
@@ -143,11 +189,11 @@ export async function analyzeDrawing(
 }
 ` : `
 이 그림이 무엇인지 맞춰보세요.
-
+${topicContext}
 지침:
 1. 그림을 보고 무엇을 그린 것인지 추측해주세요.
 2. 손으로 그린 간단한 그림이므로, 대략적인 형태를 보고 추측하면 됩니다.
-3. 한 단어로만 답변해주세요. (예: 고양이, 사과, 자동차, 별, 해 등)
+3. 한 단어로만 답변해주세요. (예: 고양이, 사과, 자동차, 삼각형, 막대그래프 등)
 
 중요:
 - 그림이 거의 비어있거나, 점/선 몇 개만 있거나, 낙서 수준이라면 반드시 "알 수 없음"으로 답하세요.

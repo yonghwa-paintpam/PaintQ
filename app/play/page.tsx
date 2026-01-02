@@ -709,6 +709,7 @@ function GamePage({
           body: JSON.stringify({
             imageData: currentBase64Data,
             correctAnswer: currentWord.word,
+            topicName: topic.name, // 주제명 전달하여 AI 추측 정확도 향상
           }),
         });
 

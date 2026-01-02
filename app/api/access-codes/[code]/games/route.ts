@@ -2,6 +2,20 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { analyzeDrawing } from '@/lib/gemini';
 
+/**
+ * 주제명에서 핵심 힌트를 추출하는 함수
+ */
+function extractTopicHint(topicName: string): string {
+  let hint = topicName
+    .replace(/[★☆]/g, '')
+    .replace(/난이도/g, '')
+    .replace(/\s*\/\s*/g, ' ')
+    .trim();
+  hint = hint.replace(/&/g, ', ');
+  hint = hint.replace(/\s+/g, ' ').trim();
+  return hint || topicName;
+}
+
 // POST: 새 게임 생성 및 그림 분석
 export async function POST(
   request: NextRequest,
@@ -111,6 +125,9 @@ export async function POST(
 
     const base64Data = imageData.includes(',') ? imageData.split(',')[1] : imageData;
 
+    // 주제명에서 힌트 추출
+    const topicHint = extractTopicHint(topic.name);
+
     if (aiGuess !== undefined && isCorrect !== undefined) {
       // 이미 분석된 결과가 있으면 aiGuess, isCorrect는 그대로 사용
       finalAiGuess = aiGuess;
@@ -118,7 +135,7 @@ export async function POST(
       
       // impressionScore만 별도로 계산 (저장 시에만)
       try {
-        const scoreResult = await analyzeDrawing(base64Data, word.word, true);
+        const scoreResult = await analyzeDrawing(base64Data, word.word, true, topicHint);
         finalImpressionScore = scoreResult.impressionScore;
       } catch (scoreError) {
         console.error('인상 점수 분석 오류:', scoreError);
@@ -127,7 +144,7 @@ export async function POST(
     } else {
       // AI 분석 수행 (impressionScore 포함)
       try {
-        const analysisResult = await analyzeDrawing(base64Data, word.word, true);
+        const analysisResult = await analyzeDrawing(base64Data, word.word, true, topicHint);
         finalAiGuess = analysisResult.aiGuess;
         finalIsCorrect = analysisResult.isCorrect;
         finalImpressionScore = analysisResult.impressionScore;

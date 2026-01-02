@@ -5,7 +5,7 @@ import { analyzeDrawing } from '@/lib/gemini';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { imageData, correctAnswer } = body;
+    const { imageData, correctAnswer, topicName } = body;
 
     if (!imageData || !correctAnswer) {
       return NextResponse.json(
@@ -14,8 +14,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // 주제명에서 힌트 추출 (예: "도형 / 난이도 ★★☆☆☆" -> "도형")
+    const topicHint = topicName ? extractTopicHint(topicName) : undefined;
+
     try {
-      const result = await analyzeDrawing(imageData, correctAnswer);
+      const result = await analyzeDrawing(imageData, correctAnswer, false, topicHint);
       return NextResponse.json(result);
     } catch (aiError: any) {
       // AI API 오류 시 오답으로 처리
@@ -34,4 +37,27 @@ export async function POST(request: NextRequest) {
       isCorrect: false,
     });
   }
+}
+
+/**
+ * 주제명에서 핵심 힌트를 추출하는 함수
+ * 예: "도형 / 난이도 ★★☆☆☆" -> "도형"
+ * 예: "도형&그래프 / ★★★☆☆" -> "도형, 그래프"
+ * 예: "수학도구 ★★☆☆☆" -> "수학도구"
+ */
+function extractTopicHint(topicName: string): string {
+  // 난이도 표시 제거 (★, ☆, /, 숫자 등)
+  let hint = topicName
+    .replace(/[★☆]/g, '')
+    .replace(/난이도/g, '')
+    .replace(/\s*\/\s*/g, ' ')
+    .trim();
+  
+  // & 를 ', '로 변환
+  hint = hint.replace(/&/g, ', ');
+  
+  // 연속 공백 제거
+  hint = hint.replace(/\s+/g, ' ').trim();
+  
+  return hint || topicName;
 }
