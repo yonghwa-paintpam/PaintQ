@@ -36,12 +36,18 @@ interface Drawing {
   id: string;
   imageData: string;
   wordId: string;
+  impressionScore?: number;
+  aiGuess?: string;
+  isCorrect?: boolean;
 }
 
 interface GroupedDrawings {
   word: string;
   wordId: string;
   drawings: Drawing[];
+  totalCount: number;
+  isLimited: boolean;
+  isLoadingAll?: boolean;
 }
 
 function SuperAdminContent() {
@@ -206,13 +212,16 @@ function SuperAdminContent() {
     try {
       const grouped: GroupedDrawings[] = [];
       for (const word of topic.words.sort((a, b) => a.order - b.order)) {
-        const response = await fetch(`/api/access-codes/${selectedCode}/drawings/${word.id}`);
+        // 베스트 4개만 먼저 로드 (limit=4)
+        const response = await fetch(`/api/access-codes/${selectedCode}/drawings/${word.id}?limit=4`);
         if (response.ok) {
           const data = await response.json();
           grouped.push({
             word: word.word,
             wordId: word.id,
-            drawings: data,
+            drawings: data.drawings || [],
+            totalCount: data.totalCount || 0,
+            isLimited: data.isLimited || false,
           });
         }
       }
@@ -221,6 +230,33 @@ function SuperAdminContent() {
       // 오류 무시
     } finally {
       setLoading(false);
+    }
+  };
+
+  // 특정 단어의 전체 그림 로드
+  const handleLoadAllDrawings = async (wordId: string) => {
+    // 로딩 상태 설정
+    setGroupedDrawings(prev => 
+      prev.map(g => g.wordId === wordId ? { ...g, isLoadingAll: true } : g)
+    );
+
+    try {
+      const response = await fetch(`/api/access-codes/${selectedCode}/drawings/${wordId}?limit=all`);
+      if (response.ok) {
+        const data = await response.json();
+        setGroupedDrawings(prev =>
+          prev.map(g =>
+            g.wordId === wordId
+              ? { ...g, drawings: data.drawings || [], isLimited: false, isLoadingAll: false }
+              : g
+          )
+        );
+      }
+    } catch {
+      // 오류 시 로딩 상태 해제
+      setGroupedDrawings(prev =>
+        prev.map(g => g.wordId === wordId ? { ...g, isLoadingAll: false } : g)
+      );
     }
   };
 
@@ -459,23 +495,47 @@ function SuperAdminContent() {
                       <h3 className="font-semibold text-gray-800 mb-2 flex items-center gap-2">
                         📝 {group.word}
                         <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded">
-                          {group.drawings.length}개
+                          {group.isLimited ? `베스트 ${group.drawings.length}개` : `${group.drawings.length}개`}
                         </span>
+                        {group.totalCount > 0 && (
+                          <span className="text-xs text-gray-500">
+                            (총 {group.totalCount}개)
+                          </span>
+                        )}
                       </h3>
-                      {group.drawings.length === 0 ? (
+                      {group.totalCount === 0 ? (
                         <p className="text-sm text-gray-500">그림 없음</p>
                       ) : (
-                        <div className="grid grid-cols-3 gap-2">
-                          {group.drawings.map((drawing) => (
-                            <div key={drawing.id} className="border rounded p-1 bg-gray-50">
-                              <img
-                                src={drawing.imageData}
-                                alt={group.word}
-                                className="w-full h-16 object-contain rounded"
-                              />
-                            </div>
-                          ))}
-                        </div>
+                        <>
+                          <div className="grid grid-cols-3 gap-2">
+                            {group.drawings.map((drawing) => (
+                              <div key={drawing.id} className="border rounded p-1 bg-gray-50 relative">
+                                <img
+                                  src={drawing.imageData}
+                                  alt={group.word}
+                                  className="w-full h-16 object-contain rounded"
+                                />
+                                {drawing.impressionScore !== undefined && (
+                                  <span className="absolute top-0 right-0 text-xs bg-yellow-400 text-yellow-900 px-1 rounded-bl">
+                                    ⭐{drawing.impressionScore}
+                                  </span>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                          {/* 전체 보기 버튼 */}
+                          {group.isLimited && (
+                            <button
+                              onClick={() => handleLoadAllDrawings(group.wordId)}
+                              disabled={group.isLoadingAll}
+                              className="mt-2 w-full py-1.5 text-sm text-blue-600 bg-blue-50 hover:bg-blue-100 rounded border border-blue-200 transition-colors disabled:opacity-50"
+                            >
+                              {group.isLoadingAll 
+                                ? '로딩 중...' 
+                                : `전체 ${group.totalCount}개 보기`}
+                            </button>
+                          )}
+                        </>
                       )}
                     </div>
                   ))}

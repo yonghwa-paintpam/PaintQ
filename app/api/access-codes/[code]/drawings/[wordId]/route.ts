@@ -3,6 +3,10 @@ import { prisma } from '@/lib/db';
 
 /**
  * 접속 코드별 단어의 그림 데이터 조회
+ * 
+ * Query Parameters:
+ * - limit: 가져올 그림 수 (기본값: 4, 'all'이면 전체)
+ * - best: 'true'면 impressionScore 기준 정렬 (기본값: true)
  */
 export async function GET(
   request: Request,
@@ -10,6 +14,9 @@ export async function GET(
 ) {
   try {
     const { code, wordId } = params;
+    const { searchParams } = new URL(request.url);
+    const limitParam = searchParams.get('limit') || '4';
+    const bestParam = searchParams.get('best') !== 'false'; // 기본값 true
 
     // 접속 코드 확인
     const accessCode = await prisma.accessCode.findUnique({
@@ -37,11 +44,33 @@ export async function GET(
       },
     });
 
-    const drawings = games
+    let drawings = games
       .filter((game) => game.drawing !== null)
       .map((game) => game.drawing);
 
-    return NextResponse.json(drawings);
+    const totalCount = drawings.length;
+
+    // impressionScore 기준 정렬 (높은 순)
+    if (bestParam) {
+      drawings = drawings.sort((a, b) => {
+        const scoreA = a?.impressionScore ?? 0;
+        const scoreB = b?.impressionScore ?? 0;
+        return scoreB - scoreA;
+      });
+    }
+
+    // limit 적용
+    if (limitParam !== 'all') {
+      const limit = parseInt(limitParam, 10) || 4;
+      drawings = drawings.slice(0, limit);
+    }
+
+    // 전체 개수와 함께 반환
+    return NextResponse.json({
+      drawings,
+      totalCount,
+      isLimited: limitParam !== 'all' && totalCount > drawings.length,
+    });
   } catch (error) {
     console.error('그림 데이터 조회 오류:', error);
     return NextResponse.json(
